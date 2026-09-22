@@ -1,0 +1,14 @@
+{
+  "name": "𝘡𝘦𝘱𝘩𝘺𝘳 Bot",
+  "description": "WhatsApp automation bot with Admin Panel",
+  "repository": "https://github.com/yourusername/zephyr_md_bot",
+  "keywords": ["whatsapp", "bot", "baileys", "node"],
+  "env": {
+    "OWNER_NUMBER": { "description": "Your WhatsApp number with country code, no +", "value": "27621834910" },
+    "ADMIN_PANEL_PASSWORD": { "description": "Password for the /admin dashboard", "value": "zephyr 27621834910" },
+    "OPENAI_API_KEY": { "description": "Optional — for .ai command", "required": false },
+    "GIPHY_API_KEY": { "description": "Optional", "required": false }
+  },
+  "formation": { "web": { "quantity": 1, "size": "eco" } },
+  "buildpacks": [{ "url": "heroku/nodejs" }]
+}

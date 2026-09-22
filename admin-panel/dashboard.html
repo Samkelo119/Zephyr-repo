@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Admin Dashboard — Awais Cyber Bot</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        background: radial-gradient(circle at 10% 0%, #16213f 0%, #0a0e1a 50%, #05070d 100%);
+        color: #e6ecff; min-height: 100vh; padding-bottom: 60px;
+    }
+    header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 18px 28px; border-bottom: 1px solid rgba(90,140,255,0.2);
+        background: rgba(10,14,26,0.6); position: sticky; top: 0; backdrop-filter: blur(8px); z-index: 10;
+    }
+    header h1 { font-size: 16px; letter-spacing: 0.5px; }
+    header h1 span { color: #4d8cff; }
+    #logoutBtn { background: rgba(255,80,80,0.15); border: 1px solid rgba(255,80,80,0.4); color: #ff8080;
+        padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+    #logoutBtn:hover { background: rgba(255,80,80,0.25); }
+    .tabs { display: flex; gap: 8px; padding: 18px 28px 0; flex-wrap: wrap; }
+    .tab {
+        padding: 9px 16px; border-radius: 9px; cursor: pointer; font-size: 13px; font-weight: 500;
+        background: rgba(255,255,255,0.04); border: 1px solid rgba(90,140,255,0.15); color: #9db0d8;
+    }
+    .tab.active { background: linear-gradient(90deg, #2563eb, #4d8cff); color: #fff; border-color: transparent; }
+    main { padding: 24px 28px; max-width: 980px; margin: 0 auto; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px; }
+    .stat {
+        background: linear-gradient(160deg, rgba(30,41,70,0.7), rgba(10,14,26,0.7));
+        border: 1px solid rgba(90,140,255,0.2); border-radius: 14px; padding: 18px;
+    }
+    .stat .num { font-size: 26px; font-weight: 700; color: #4d8cff; }
+    .stat .label { font-size: 12px; color: #9db0d8; margin-top: 4px; }
+    .card {
+        background: linear-gradient(160deg, rgba(30,41,70,0.6), rgba(10,14,26,0.6));
+        border: 1px solid rgba(90,140,255,0.18); border-radius: 14px; padding: 20px; margin-bottom: 18px;
+    }
+    .card h3 { font-size: 14px; margin-bottom: 14px; color: #cdd8f7; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    th { color: #7f92bd; font-weight: 500; }
+    .row-input { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    input, select {
+        padding: 9px 12px; border-radius: 8px; border: 1px solid rgba(90,140,255,0.25);
+        background: rgba(255,255,255,0.04); color: #e6ecff; font-size: 13px; outline: none; flex: 1; min-width: 160px;
+    }
+    button.action {
+        padding: 9px 16px; border: none; border-radius: 8px; background: linear-gradient(90deg, #2563eb, #4d8cff);
+        color: #fff; font-weight: 600; font-size: 13px; cursor: pointer;
+    }
+    button.danger { background: linear-gradient(90deg, #b91c1c, #ef4444); }
+    button.ghost { background: rgba(255,255,255,0.06); color: #cdd8f7; border: 1px solid rgba(255,255,255,0.12); }
+    .pill { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .pill.on { background: rgba(34,197,94,0.15); color: #4ade80; }
+    .pill.off { background: rgba(148,163,184,0.15); color: #94a3b8; }
+    .pill.banned { background: rgba(239,68,68,0.15); color: #f87171; }
+    .toggle-btn { padding: 5px 10px; font-size: 11px; border-radius: 6px; border: 1px solid rgba(90,140,255,0.3); background: rgba(255,255,255,0.04); color: #cdd8f7; cursor: pointer; margin-right: 4px; }
+    .small { font-size: 11px; color: #6a7ba5; }
+    .toast { position: fixed; bottom: 24px; right: 24px; background: #16213f; border: 1px solid rgba(90,140,255,0.4);
+        padding: 12px 18px; border-radius: 10px; font-size: 13px; opacity: 0; transform: translateY(10px);
+        transition: all 0.25s; pointer-events: none; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    img.thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); }
+</style>
+</head>
+<body>
+<header>
+    <h1>⚡ <span>AWAIS CYBER</span> — Admin Panel</h1>
+    <button id="logoutBtn">Logout</button>
+</header>
+
+<div class="tabs">
+    <div class="tab active" data-tab="overview">📊 Overview</div>
+    <div class="tab" data-tab="users">👥 Users & Bans</div>
+    <div class="tab" data-tab="features">⚙️ Features</div>
+    <div class="tab" data-tab="commands">🎛️ Commands</div>
+    <div class="tab" data-tab="images">🖼️ Menu Images</div>
+    <div class="tab" data-tab="keys">🔑 API Keys</div>
+    <div class="tab" data-tab="broadcast">📢 Broadcast</div>
+    <div class="tab" data-tab="dmbroadcast">✉️ DM Broadcast</div>
+    <div class="tab" data-tab="backup">💾 Backup</div>
+    <div class="tab" data-tab="stats">📈 Stats</div>
+    <div class="tab" data-tab="custom">🧩 Custom Commands</div>
+    <div class="tab" data-tab="logs">📜 Live Logs</div>
+    <div class="tab" data-tab="groups">👨‍👩‍👧‍👦 Groups</div>
+    <div class="tab" data-tab="security">🔐 Security</div>
+</div>
+
+<main>
+    <div class="panel active" id="panel-overview">
+        <div class="grid" id="overviewGrid"></div>
+        <div class="card"><h3>System</h3><div id="overviewExtra" class="small"></div></div>
+    </div>
+
+    <div class="panel" id="panel-users">
+        <div class="card">
+            <h3>Connected Sessions</h3>
+            <table id="usersTable"><thead><tr><th>User</th><th>Status</th><th>Public</th><th>Ban</th></tr></thead><tbody></tbody></table>
+        </div>
+        <div class="card">
+            <h3>Ban a Number Manually</h3>
+            <div class="row-input">
+                <input id="banInput" placeholder="e.g. 923001234567@s.whatsapp.net" />
+                <button class="action danger" onclick="banManual()">Ban</button>
+            </div>
+            <p class="small">Banned users get zero response from the bot on any command.</p>
+        </div>
+    </div>
+
+    <div class="panel" id="panel-features">
+        <div class="card">
+            <h3>Per-Session Toggles</h3>
+            <table id="featuresTable"><thead><tr><th>User</th><th>Auto-React</th><th>AI Reply</th><th>Public</th><th>Keep-Alive DM</th></tr></thead><tbody></tbody></table>
+        </div>
+    </div>
+
+    <div class="panel" id="panel-commands">
+        <div class="card">
+            <h3>Prefix</h3>
+            <p class="small" style="margin-bottom:10px;">The character(s) users type before a command name, e.g. "." in ".ping". 1-3 characters.</p>
+            <div class="row-input">
+                <input id="prefixInput" placeholder="." maxlength="3" style="flex:0 0 100px;" />
+                <button class="action" onclick="saveCommandsPrefix()">Save Prefix</button>
+            </div>
+        </div>
+        <div class="card">
+            <h3>Prefixless Mode</h3>
+            <p class="small" style="margin-bottom:10px;">When ON, users can also trigger a command by typing its name with no prefix at all (e.g. just "ping"), as long as it matches a known command name exactly. The prefix above still always works too.</p>
+            <div class="row-input">
+                <button class="action" id="prefixlessOnBtn" onclick="setPrefixless(true)">Turn ON</button>
+                <button class="ghost" id="prefixlessOffBtn" onclick="setPrefixless(false)">Turn OFF</button>
+                <span class="small" id="prefixlessStatus" style="align-self:center;"></span>
+            </div>
+        </div>
+        <div class="card">
+            <h3>Premium Users</h3>
+            <p class="small" style="margin-bottom:10px;">Numbers that can use commands marked "Premium" below (the owner always can, regardless of this list).</p>
+            <div class="row-input">
+                <input id="premiumJidInput" placeholder="e.g. 923001234567" />
+                <button class="action" onclick="addPremiumUser()">Add</button>
+            </div>
+            <table id="premiumUsersTable" style="margin-top:12px;"><thead><tr><th>Number</th><th></th></tr></thead><tbody></tbody></table>
+        </div>
+        <div class="card">
+            <h3>All Commands (<span id="cmdCount">0</span>)</h3>
+            <div class="row-input" style="margin-bottom:4px;">
+                <input id="cmdSearchInput" placeholder="Search commands..." oninput="renderCommandsTable()" />
+            </div>
+            <div style="max-height:480px;overflow-y:auto;">
+                <table id="commandsTable"><thead><tr><th>Command</th><th>Status</th><th>Access</th><th></th></tr></thead><tbody></tbody></table>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel" id="panel-images">
+        <div class="card">
+            <h3>Menu Rotation Images</h3>
+            <div id="imagesGrid" class="grid"></div>
+            <div class="row-input">
+                <input id="imageUrlInput" placeholder="https://... image or .mp4 url" />
+                <button class="action" onclick="addImage()">Add</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel" id="panel-keys">
+        <div class="card">
+            <h3>API Keys — current values</h3>
+            <table id="keysTable"><thead><tr><th>Key</th><th>Used by</th><th>Value</th><th></th></tr></thead><tbody></tbody></table>
+        </div>
+        <div class="card">
+            <h3>Add / Replace a Key</h3>
+            <div class="row-input">
+                <input id="keyName" placeholder="key name e.g. openaiApiKey" />
+                <input id="keyValue" placeholder="new value" />
+                <button class="action" onclick="setKey()">Save Key</button>
+            </div>
+            <p class="small">Known keys: openaiApiKey (.ai), omdbApiKey (.movie), memeApiKey (.meme), songApiKey (.song), giphyApiKey — or type any custom name to add your own. <b>Changes apply immediately and survive a restart</b> — no redeploy needed.</p>
+        </div>
+    </div>
+
+    <div class="panel" id="panel-broadcast">
+        <div class="card">
+            <h3>Broadcast to All Known Groups</h3>
+            <textarea id="broadcastText" rows="5" style="width:100%;padding:12px;border-radius:8px;border:1px solid rgba(90,140,255,0.25);background:rgba(255,255,255,0.04);color:#e6ecff;font-size:13px;resize:vertical;" placeholder="Type your announcement..."></textarea>
+            <div class="row-input">
+                <button class="action" onclick="sendBroadcast()">Send to All Groups</button>
+            </div>
+            <p class="small" id="broadcastResult"></p>
+        </div>
+    </div>
+
+    <div class="panel" id="panel-dmbroadcast">
+        <div class="card">
+            <h3>✉️ DM Broadcast — Individual Users</h3>
+            <p class="small" style="margin-bottom:14px;">Sends straight to people's private chats, not groups. <b id="dmUserCount">…</b> people have DM'd this bot so far. Use sparingly — repeated unsolicited DMs are the kind of thing that gets numbers flagged as spam by WhatsApp.</p>
+        </div>
+        <div class="card">
+            <h3>Send Text</h3>
+            <textarea id="dmText" rows="4" style="width:100%;padding:12px;border-radius:8px;border:1px solid rgba(90,140,255,0.25);background:rgba(255,255,255,0.04);color:#e6ecff;font-size:13px;resize:vertical;" placeholder="Type your message..."></textarea>
+            <div class="row-input">
+                <button class="action" onclick="sendDmText()">Send Text to Everyone</button>
+            </div>
+            <p class="small" id="dmTextResult"></p>
+        </div>
+        <div class="card">
+            <h3>Send Photo / Video / File</h3>
+            <div class="row-input">
+                <input type="file" id="dmFile" style="flex:1;" />
+            </div>
+            <div class="row-input">
+                <input id="dmCaption" placeholder="Optional caption" />
+                <button class="action" onclick="sendDmMedia()">Send File to Everyone</button>
+            </div>
+            <p class="small" id="dmMediaResult"></p>
+        </div>
+    </div>
+
+    <div class="panel" id="panel-backup">
+        <div class="card">
+            <h3>Backup & Restore</h3>
+            <p class="small" style="margin-bottom:12px;">Download a full backup of your bot's data (settings, groups, warnings, todos, everything) as JSON, or restore from a previous backup file.</p>
+            <div class="row-input">
+                <button class="action" onclick="downloadBackup()">⬇️ Download Backup</button>
+                <input type="file" id="restoreFile" accept="application/json" style="flex:1;" />
+                <button class="action danger" onclick="restoreBackup()">⬆️ Restore</button>
+            </div>
+            <p class="small">⚠️ Restoring replaces ALL current bot data with the uploaded file.</p>
+        </div>
+    </div>
+
+    <div class="panel" id="panel-stats">
+        <div class="card">
+            <h3>Most Used Commands</h3>
+            <table id="statsTable"><thead><tr><th>#</th><th>Command</th><th>Uses</th></tr></thead><tbody></tbody></table>
+            <p class="small" id="statsTotal"></p>
+        </div>
+    </div>
+
+    <div class="panel" id="panel-custom">
+        <div class="card">
+            <h3>⚠️ Before you paste code</h3>
+            <p class="small">This runs with full server access — same as adding a file to the bot's own code. Only paste code you wrote or fully trust. It has access to <code>sock</code>, <code>from</code>, <code>msg</code>, <code>args</code>, <code>q</code>, <code>botData</code>, <code>saveBotData</code>, <code>sender</code>, <code>isGroup</code>, <code>isAdmin</code>, <code>isOwner</code>, and <code>require</code>.</p>
+        </div>
+        <div class="card">
+            <h3>Add / Edit a Command</h3>
+            <div class="row-input">
+                <input id="cmdName" placeholder="command name, e.g. hello (no dot, no spaces)" />
+            </div>
+            <label style="display:block;margin:10px 0 6px;font-size:12px;color:#9db0d8;">Code (the body of an async function)</label>
+            <textarea id="cmdCode" rows="10" style="width:100%;padding:12px;border-radius:8px;border:1px solid rgba(90,140,255,0.25);background:rgba(0,0,0,0.3);color:#e6ecff;font-family:monospace;font-size:13px;resize:vertical;" placeholder="await sock.sendMessage(from, { text: 'Hello ' + sender }, { quoted: msg });"></textarea>
+            <div class="row-input">
+                <button class="action ghost" onclick="validateCmd()">✅ Check Syntax</button>
+                <button class="action" onclick="saveCmd()">💾 Save Command</button>
+            </div>
+            <p class="small" id="cmdValidateResult"></p>
+        </div>
+        <div class="card">
+            <h3>Your Custom Commands</h3>
+            <table id="customTable"><thead><tr><th>Command</th><th>Status</th><th>Updated</th><th></th></tr></thead><tbody></tbody></table>
+        </div>
+    </div>
+
+    <div class="panel" id="panel-logs">
+        <div class="card">
+            <h3>Live Server Logs <button class="toggle-btn" onclick="loadLogs()" style="margin-left:8px;">↻ Refresh</button></h3>
+            <div class="console-body" id="logsBody" style="height:420px;"></div>
+        </div>
+    </div>
+
+    <div class="panel" id="panel-groups">
+        <div class="card">
+            <h3>Groups the Bot Is In</h3>
+            <table id="groupsTable"><thead><tr><th>Name</th><th>Members</th><th></th></tr></thead><tbody></tbody></table>
+        </div>
+    </div>
+
+    <div class="panel" id="panel-security">
+        <div class="card">
+            <h3>Change Admin Panel Password</h3>
+            <div class="row-input">
+                <input type="password" id="newPassword" placeholder="new password (min 6 characters)" />
+                <button class="action" onclick="changePassword()">Update Password</button>
+            </div>
+            <p class="small">You'll need this new password next time you log in. It's saved on the server and survives restarts.</p>
+        </div>
+        <div class="card">
+            <h3>Restart Bot</h3>
+            <p class="small" style="margin-bottom:12px;">Restarts the bot process. Only comes back up automatically on hosts with a process manager (Railway, PM2, Docker restart policy). On a bare <code>node bootstrap.js</code> with nothing supervising it, you'll need to start it again manually.</p>
+            <button class="action danger" onclick="restartBot()">🔄 Restart Now</button>
+        </div>
+    </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+function toast(text) {
+    const t = document.getElementById('toast');
+    t.textContent = text; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+async function api(path, opts = {}) {
+    const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+    if (res.status === 401) { window.location.href = '/admin'; throw new Error('unauthorized'); }
+    return res.json();
+}
+
+document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+        loadTab(tab.dataset.tab);
+    });
+});
+
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+    await api('/admin/api/logout', { method: 'POST' });
+    window.location.href = '/admin';
+});
+
+async function loadOverview() {
+    const d = await api('/admin/api/overview');
+    if (!d.ok) return;
+    document.getElementById('overviewGrid').innerHTML = `
+        <div class="stat"><div class="num">${d.connectedSessions}/${d.totalSessions}</div><div class="label">Connected Sessions</div></div>
+        <div class="stat"><div class="num">${d.knownGroups}</div><div class="label">Known Groups</div></div>
+        <div class="stat"><div class="num">${d.knownUsers}</div><div class="label">DM Users</div></div>
+        <div class="stat"><div class="num">${d.bannedUsers}</div><div class="label">Banned Users</div></div>
+        <div class="stat"><div class="num">${Math.floor(d.uptimeSeconds / 3600)}h</div><div class="label">Uptime</div></div>`;
+    document.getElementById('overviewExtra').innerHTML = `Bot: ${d.botName} · Version: ${d.version}`;
+}
+
+async function loadUsers() {
+    const d = await api('/admin/api/users');
+    if (!d.ok) return;
+    const tbody = document.querySelector('#usersTable tbody');
+    tbody.innerHTML = d.users.map(u => `
+        <tr>
+            <td>${u.userId}</td>
+            <td><span class="pill ${u.connected ? 'on' : 'off'}">${u.connected ? 'Online' : 'Offline'}</span></td>
+            <td>${u.isPublic ? 'Public' : 'Private'}</td>
+            <td>${u.banned
+                ? `<span class="pill banned">Banned</span> <button class="toggle-btn" onclick="unban('${u.userId}')">Unban</button>`
+                : `<button class="toggle-btn" onclick="ban('${u.userId}')">Ban</button>`}
+            </td>
+        </tr>`).join('') || '<tr><td colspan="4" class="small">No sessions yet.</td></tr>';
+}
+
+async function ban(jid) { await api('/admin/api/ban', { method: 'POST', body: JSON.stringify({ jid }) }); toast('Banned'); loadUsers(); }
+async function unban(jid) { await api('/admin/api/unban', { method: 'POST', body: JSON.stringify({ jid }) }); toast('Unbanned'); loadUsers(); }
+async function banManual() {
+    const jid = document.getElementById('banInput').value.trim();
+    if (!jid) return;
+    await ban(jid);
+    document.getElementById('banInput').value = '';
+}
+
+async function loadFeatures() {
+    const d = await api('/admin/api/users');
+    if (!d.ok) return;
+    const tbody = document.querySelector('#featuresTable tbody');
+    tbody.innerHTML = d.users.map(u => `
+        <tr>
+            <td>${u.userId}</td>
+            <td><button class="toggle-btn" onclick="setFeature('${u.userId}','autoReact',${!u.autoReact})">${u.autoReact ? 'ON ✅' : 'OFF ⬜'}</button></td>
+            <td><button class="toggle-btn" onclick="setFeature('${u.userId}','aiEnabled',${!u.aiEnabled})">${u.aiEnabled ? 'ON ✅' : 'OFF ⬜'}</button></td>
+            <td><button class="toggle-btn" onclick="setFeature('${u.userId}','isPublic',${!u.isPublic})">${u.isPublic ? 'Public' : 'Private'}</button></td>
+            <td><button class="toggle-btn" onclick="setFeature('${u.userId}','keepAliveDM',${!u.keepAliveDM})">${u.keepAliveDM ? 'ON ✅' : 'OFF ⬜'}</button></td>
+        </tr>`).join('') || '<tr><td colspan="5" class="small">No sessions yet.</td></tr>';
+}
+async function setFeature(userId, key, value) {
+    await api('/admin/api/features', { method: 'POST', body: JSON.stringify({ userId, key, value }) });
+    toast('Updated'); loadFeatures();
+}
+
+async function loadImages() {
+    const d = await api('/admin/api/menu-images');
+    if (!d.ok) return;
+    document.getElementById('imagesGrid').innerHTML = d.images.map(url => `
+        <div class="stat" style="display:flex;align-items:center;gap:10px;">
+            ${url.toLowerCase().includes('.mp4')
+                ? `<div class="thumb" style="display:flex;align-items:center;justify-content:center;">🎬</div>`
+                : `<img class="thumb" src="${url}" onerror="this.style.display='none'"/>`}
+            <div style="flex:1;overflow:hidden;">
+                <div class="small" style="word-break:break-all;">${url}</div>
+                <button class="toggle-btn" style="margin-top:6px;" onclick="delImage('${url.replace(/'/g, "\\'")}')">Remove</button>
+            </div>
+        </div>`).join('') || '<p class="small">No images yet.</p>';
+}
+async function addImage() {
+    const url = document.getElementById('imageUrlInput').value.trim();
+    if (!url) return;
+    const d = await api('/admin/api/menu-images', { method: 'POST', body: JSON.stringify({ url }) });
+    if (d.ok) { toast('Image added'); document.getElementById('imageUrlInput').value = ''; loadImages(); }
+    else toast(d.error || 'Failed');
+}
+async function delImage(url) {
+    await api('/admin/api/menu-images/delete', { method: 'POST', body: JSON.stringify({ url }) });
+    toast('Removed'); loadImages();
+}
+
+let revealedKeys = {};
+async function loadKeys() {
+    const d = await api('/admin/api/apikeys');
+    if (!d.ok) return;
+    const tbody = document.querySelector('#keysTable tbody');
+    tbody.innerHTML = d.keys.map(k => {
+        const shown = revealedKeys[k.name];
+        const displayVal = k.value ? (shown ? k.value : '•'.repeat(Math.min(k.value.length, 24))) : '<span class="small">not set</span>';
+        return `
+        <tr>
+            <td>${k.name}</td>
+            <td class="small">${k.info}</td>
+            <td style="word-break:break-all;">${displayVal}</td>
+            <td style="white-space:nowrap;">
+                ${k.value ? `<button class="toggle-btn" onclick="toggleReveal('${k.name}')">${shown ? '🙈 Hide' : '👁 Show'}</button>` : ''}
+                <button class="toggle-btn" onclick="editKey('${k.name}','${(k.value||'').replace(/'/g, "\\'")}')">Edit</button>
+                <button class="toggle-btn" onclick="delKey('${k.name}')">Delete</button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+function toggleReveal(name) {
+    revealedKeys[name] = !revealedKeys[name];
+    loadKeys();
+}
+function editKey(name, value) {
+    document.getElementById('keyName').value = name;
+    document.getElementById('keyValue').value = value;
+    document.getElementById('keyValue').focus();
+}
+async function setKey() {
+    const key = document.getElementById('keyName').value.trim();
+    const value = document.getElementById('keyValue').value;
+    if (!key || !value) return toast('Enter key name and value');
+    await api('/admin/api/apikeys', { method: 'POST', body: JSON.stringify({ key, value }) });
+    toast('✅ Key saved — active immediately'); document.getElementById('keyName').value = ''; document.getElementById('keyValue').value = '';
+    loadKeys();
+}
+async function delKey(key) {
+    if (!confirm(`Delete key "${key}"?`)) return;
+    await fetch('/admin/api/apikeys/' + encodeURIComponent(key), { method: 'DELETE' });
+    toast('Key removed'); loadKeys();
+}
+
+function loadTab(name) {
+    if (name === 'overview') loadOverview();
+    if (name === 'users') loadUsers();
+    if (name === 'features') loadFeatures();
+    if (name === 'commands') loadCommandsPanel();
+    if (name === 'images') loadImages();
+    if (name === 'keys') loadKeys();
+    if (name === 'stats') loadStats();
+    if (name === 'custom') loadCustomCommands();
+    if (name === 'logs') loadLogs();
+    if (name === 'groups') loadGroups();
+    if (name === 'dmbroadcast') loadDmUserCount();
+}
+
+// ---- Commands tab (prefix / prefixless mode / per-command enable+premium / premium users) ----
+let __commandsData = [];
+
+async function loadCommandsPanel() {
+    const d = await api('/admin/api/commands');
+    if (!d.ok) return toast(d.error || 'Failed to load commands');
+    document.getElementById('prefixInput').value = d.prefix;
+    __commandsData = d.commands;
+    updatePrefixlessButtons(d.prefixlessMode);
+    renderCommandsTable();
+    loadPremiumUsers();
+}
+
+function updatePrefixlessButtons(enabled) {
+    document.getElementById('prefixlessStatus').textContent = enabled ? '✅ Currently ON' : '⭕ Currently OFF';
+    document.getElementById('prefixlessOnBtn').classList.toggle('ghost', !enabled);
+    document.getElementById('prefixlessOffBtn').classList.toggle('ghost', enabled);
+}
+
+async function saveCommandsPrefix() {
+    const prefix = document.getElementById('prefixInput').value;
+    const d = await api('/admin/api/commands/prefix', { method: 'POST', body: JSON.stringify({ prefix }) });
+    if (d.ok) toast('Prefix updated to "' + d.prefix + '"'); else toast(d.error || 'Failed to update prefix');
+}
+
+async function setPrefixless(enabled) {
+    const d = await api('/admin/api/commands/prefixless', { method: 'POST', body: JSON.stringify({ enabled }) });
+    if (d.ok) { updatePrefixlessButtons(d.prefixlessMode); toast('Prefixless mode ' + (enabled ? 'enabled' : 'disabled')); }
+    else toast(d.error || 'Failed to update');
+}
+
+function renderCommandsTable() {
+    const q = (document.getElementById('cmdSearchInput').value || '').toLowerCase();
+    const filtered = __commandsData.filter(c => c.name.includes(q));
+    document.getElementById('cmdCount').textContent = __commandsData.length;
+    const tbody = document.querySelector('#commandsTable tbody');
+    tbody.innerHTML = filtered.map(c => `
+        <tr>
+            <td>${c.name}</td>
+            <td><span class="pill ${c.enabled ? 'on' : 'off'}">${c.enabled ? 'Enabled' : 'Disabled'}</span></td>
+            <td>${c.ownerOnly ? '<span class="pill banned">Owner Only</span>' : (c.premium ? '<span class="pill off" style="color:#facc15;background:rgba(250,204,21,0.15);">Premium</span>' : '<span class="pill on">Free</span>')}</td>
+            <td>
+                ${c.ownerOnly ? '' : `
+                    <button class="toggle-btn" onclick="toggleCmdEnabled('${c.name}', ${!c.enabled})">${c.enabled ? 'Disable' : 'Enable'}</button>
+                    <button class="toggle-btn" onclick="toggleCmdPremium('${c.name}', ${!c.premium})">${c.premium ? 'Make Free' : 'Make Premium'}</button>
+                `}
+            </td>
+        </tr>`).join('') || '<tr><td colspan="4" class="small">No commands match.</td></tr>';
+}
+
+async function toggleCmdEnabled(name, enabled) {
+    const d = await api('/admin/api/commands/toggle', { method: 'POST', body: JSON.stringify({ name, enabled }) });
+    if (d.ok) { const c = __commandsData.find(x => x.name === name); if (c) c.enabled = enabled; renderCommandsTable(); toast(name + (enabled ? ' enabled' : ' disabled')); }
+    else toast(d.error || 'Failed');
+}
+
+async function toggleCmdPremium(name, premium) {
+    const d = await api('/admin/api/commands/premium', { method: 'POST', body: JSON.stringify({ name, premium }) });
+    if (d.ok) { const c = __commandsData.find(x => x.name === name); if (c) c.premium = premium; renderCommandsTable(); toast(name + (premium ? ' is now Premium' : ' is now Free')); }
+    else toast(d.error || 'Failed');
+}
+
+async function loadPremiumUsers() {
+    const d = await api('/admin/api/premium-users');
+    if (!d.ok) return;
+    const tbody = document.querySelector('#premiumUsersTable tbody');
+    tbody.innerHTML = d.users.map(jid => `
+        <tr><td>${jid.split('@')[0]}</td><td><button class="toggle-btn" onclick="removePremiumUser('${jid}')">Remove</button></td></tr>
+    `).join('') || '<tr><td colspan="2" class="small">No premium users yet.</td></tr>';
+}
+
+async function addPremiumUser() {
+    const input = document.getElementById('premiumJidInput');
+    const jid = input.value.trim();
+    if (!jid) return toast('Enter a number first');
+    const d = await api('/admin/api/premium-users', { method: 'POST', body: JSON.stringify({ jid }) });
+    if (d.ok) { input.value = ''; toast('Added'); loadPremiumUsers(); } else toast(d.error || 'Failed');
+}
+
+async function removePremiumUser(jid) {
+    await fetch('/admin/api/premium-users/' + encodeURIComponent(jid), { method: 'DELETE' });
+    toast('Removed'); loadPremiumUsers();
+}
+
+async function loadDmUserCount() {
+    const d = await api('/admin/api/dm-users');
+    if (d.ok) document.getElementById('dmUserCount').textContent = d.count;
+}
+async function sendDmText() {
+    const text = document.getElementById('dmText').value.trim();
+    if (!text) return toast('Type a message first');
+    if (!confirm('Send this text to every individual user who has messaged the bot?')) return;
+    document.getElementById('dmTextResult').textContent = 'Sending...';
+    const d = await api('/admin/api/dm-broadcast/text', { method: 'POST', body: JSON.stringify({ text }) });
+    document.getElementById('dmTextResult').textContent = d.ok ? `✅ Sent to ${d.sent}/${d.total} users (${d.failed} failed).` : '❌ ' + (d.error || 'Failed');
+    if (d.ok) document.getElementById('dmText').value = '';
+}
+async function sendDmMedia() {
+    const fileInput = document.getElementById('dmFile');
+    if (!fileInput.files.length) return toast('Choose a file first');
+    if (!confirm('Send this file to every individual user who has messaged the bot?')) return;
+    const form = new FormData();
+    form.append('file', fileInput.files[0]);
+    form.append('caption', document.getElementById('dmCaption').value || '');
+    document.getElementById('dmMediaResult').textContent = 'Uploading & sending...';
+    try {
+        const res = await fetch('/admin/api/dm-broadcast/media', { method: 'POST', body: form });
+        if (res.status === 401) { window.location.href = '/admin'; return; }
+        const d = await res.json();
+        document.getElementById('dmMediaResult').textContent = d.ok ? `✅ Sent to ${d.sent}/${d.total} users (${d.failed} failed).` : '❌ ' + (d.error || 'Failed');
+    } catch (e) {
+        document.getElementById('dmMediaResult').textContent = '❌ Upload failed.';
+    }
+}
+
+// ---- custom commands ----
+async function loadCustomCommands() {
+    const d = await api('/admin/api/custom-commands');
+    if (!d.ok) return;
+    const tbody = document.querySelector('#customTable tbody');
+    tbody.innerHTML = d.commands.map(c => `
+        <tr>
+            <td>.${c.name}</td>
+            <td><span class="pill ${c.enabled ? 'on' : 'off'}">${c.enabled ? 'Enabled' : 'Disabled'}</span></td>
+            <td class="small">${c.updatedAt ? new Date(c.updatedAt).toLocaleString() : '-'}</td>
+            <td style="white-space:nowrap;">
+                <button class="toggle-btn" onclick='editCmd(${JSON.stringify(c.name)}, ${JSON.stringify(c.code)})'>Edit</button>
+                <button class="toggle-btn" onclick="toggleCmd('${c.name}', ${!c.enabled})">${c.enabled ? 'Disable' : 'Enable'}</button>
+                <button class="toggle-btn" onclick="deleteCmd('${c.name}')">Delete</button>
+            </td>
+        </tr>`).join('') || '<tr><td colspan="4" class="small">No custom commands yet.</td></tr>';
+}
+function editCmd(name, code) {
+    document.getElementById('cmdName').value = name;
+    document.getElementById('cmdCode').value = code;
+    document.getElementById('cmdValidateResult').textContent = '';
+}
+async function validateCmd() {
+    const code = document.getElementById('cmdCode').value;
+    const d = await api('/admin/api/custom-commands/validate', { method: 'POST', body: JSON.stringify({ code }) });
+    const el = document.getElementById('cmdValidateResult');
+    if (d.valid) { el.style.color = '#4ade80'; el.textContent = '✅ Syntax OK'; }
+    else { el.style.color = '#f87171'; el.textContent = '❌ ' + d.error; }
+}
+async function saveCmd() {
+    const name = document.getElementById('cmdName').value.trim();
+    const code = document.getElementById('cmdCode').value;
+    if (!name || !code) return toast('Enter a command name and code');
+    const d = await api('/admin/api/custom-commands', { method: 'POST', body: JSON.stringify({ name, code }) });
+    if (d.ok) { toast('✅ Command ".' + name + '" saved — live now, no restart needed'); loadCustomCommands(); }
+    else { document.getElementById('cmdValidateResult').style.color = '#f87171'; document.getElementById('cmdValidateResult').textContent = '❌ ' + d.error; }
+}
+async function toggleCmd(name, enabled) {
+    await api('/admin/api/custom-commands/toggle', { method: 'POST', body: JSON.stringify({ name, enabled }) });
+    toast(enabled ? 'Enabled' : 'Disabled'); loadCustomCommands();
+}
+async function deleteCmd(name) {
+    if (!confirm(`Delete command ".${name}"?`)) return;
+    await fetch('/admin/api/custom-commands/' + encodeURIComponent(name), { method: 'DELETE' });
+    toast('Deleted'); loadCustomCommands();
+}
+
+// ---- live logs ----
+async function loadLogs() {
+    const d = await api('/admin/api/logs');
+    if (!d.ok) return;
+    const body = document.getElementById('logsBody');
+    body.innerHTML = d.logs.map(l => `<div>[${new Date(l.timestamp).toLocaleTimeString()}] [${l.userId}] ${l.message}</div>`).join('') || '<div class="small">No logs yet.</div>';
+    body.scrollTop = body.scrollHeight;
+}
+
+// ---- groups ----
+async function loadGroups() {
+    const d = await api('/admin/api/groups');
+    if (!d.ok) return;
+    const tbody = document.querySelector('#groupsTable tbody');
+    tbody.innerHTML = d.groups.map(g => `
+        <tr>
+            <td>${g.subject}</td>
+            <td>${g.participants}</td>
+            <td><button class="toggle-btn" onclick="leaveGroup('${g.id}')">Leave</button></td>
+        </tr>`).join('') || '<tr><td colspan="3" class="small">No groups yet.</td></tr>';
+}
+async function leaveGroup(groupId) {
+    if (!confirm('Leave this group?')) return;
+    const d = await api('/admin/api/groups/leave', { method: 'POST', body: JSON.stringify({ groupId }) });
+    if (d.ok) { toast('Left group'); loadGroups(); } else toast(d.error || 'Failed');
+}
+
+// ---- security ----
+async function changePassword() {
+    const newPassword = document.getElementById('newPassword').value;
+    if (!newPassword || newPassword.length < 6) return toast('Min 6 characters');
+    const d = await api('/admin/api/change-password', { method: 'POST', body: JSON.stringify({ newPassword }) });
+    if (d.ok) { toast('✅ Password updated'); document.getElementById('newPassword').value = ''; } else toast(d.error || 'Failed');
+}
+async function restartBot() {
+    if (!confirm('Restart the bot now?')) return;
+    const d = await api('/admin/api/restart', { method: 'POST' });
+    toast(d.note || 'Restarting...');
+}
+
+async function sendBroadcast() {
+    const text = document.getElementById('broadcastText').value.trim();
+    if (!text) return toast('Type a message first');
+    document.getElementById('broadcastResult').textContent = 'Sending...';
+    const d = await api('/admin/api/broadcast', { method: 'POST', body: JSON.stringify({ text }) });
+    if (d.ok) {
+        document.getElementById('broadcastResult').textContent = `✅ Sent to ${d.sent}/${d.total} groups (${d.failed} failed).`;
+        document.getElementById('broadcastText').value = '';
+    } else {
+        document.getElementById('broadcastResult').textContent = '❌ ' + (d.error || 'Failed');
+    }
+}
+
+function downloadBackup() {
+    window.location.href = '/admin/api/backup';
+}
+
+async function restoreBackup() {
+    const fileInput = document.getElementById('restoreFile');
+    if (!fileInput.files.length) return toast('Choose a backup file first');
+    if (!confirm('This will REPLACE all current bot data. Continue?')) return;
+    const text = await fileInput.files[0].text();
+    let parsed;
+    try { parsed = JSON.parse(text); } catch (e) { return toast('Invalid JSON file'); }
+    const d = await api('/admin/api/restore', { method: 'POST', body: JSON.stringify(parsed) });
+    if (d.ok) toast('✅ Restored successfully'); else toast(d.error || 'Restore failed');
+}
+
+async function loadStats() {
+    const d = await api('/admin/api/stats');
+    if (!d.ok) return;
+    const tbody = document.querySelector('#statsTable tbody');
+    tbody.innerHTML = d.top.map(([cmd, count], i) => `
+        <tr><td>${i + 1}</td><td>.${cmd}</td><td>${count}</td></tr>`).join('') || '<tr><td colspan="3" class="small">No usage data yet.</td></tr>';
+    document.getElementById('statsTotal').textContent = `Total commands run: ${d.totalCommandsRun}`;
+}
+
+(async () => {
+    try { await api('/admin/api/me'); } catch (e) { return; }
+    loadOverview();
+})();
+</script>
+</body>
+</html>
