@@ -1,136 +1,277 @@
-# ⚡ ZEPHYR MD BOT
+<div align="center">
 
-A full-featured WhatsApp automation bot built on Baileys — 190+ commands,
-group moderation, AI chat, a password-protected Admin Panel, and one-command
-auto-install on any host.
+<img src="assets/menu_image.png" alt="ZEPHYR-MD" width="220" />
 
-**WhatsApp Channel:** https://whatsapp.com/channel/0029Vb8p6DV8aKvNTp6n8n45
-**Powered By Awais MD**
+# ⚡ 𝘡𝘌𝘗𝘏𝘠𝘙-𝘔𝘋
 
----
+### The multi-number WhatsApp automation bot that runs itself.
 
-## ✨ What's Inside
+**190+ commands · Isolated per-number sessions · Smart moderation · AI chat · Dual admin panels · One-click deploy**
 
-- **190+ working commands** across fun, tools, group management, downloaders,
-  text utilities, math/finance calculators, and moderation
-- **Advanced group moderation**: mute/unmute, bad-word filter, slow mode,
-  keyword auto-responder, antilink, warnings, welcome/goodbye
-- **AI chat** (`.ai` — DM only, needs an OpenAI-compatible key, settable
-  from the Admin Panel with zero redeploy)
-- **Admin Panel** (`/admin`) — password-protected control center: ban/unban
-  users, toggle features live, manage menu images, replace API keys,
-  broadcast announcements, download/restore full backups, view command
-  usage stats
-- **Auto-install** — `node bootstrap.js` checks for missing/outdated
-  dependencies and runs `npm install` automatically before starting, so you
-  never have to remember the step yourself
-- **Deploys anywhere**: Railway, Replit, Heroku, Katabump, Termux (your own
-  phone), any VPS, or a Vercel-hosted proxy for the dashboards — see
-  [`DEPLOY.md`](./DEPLOY.md)
+<br />
+
+[![Node](https://img.shields.io/badge/node-%3E%3D%2020-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org)
+[![Baileys](https://img.shields.io/badge/Baileys-7.0.0--rc14-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://github.com/WhiskeySockets/Baileys)
+[![Version](https://img.shields.io/badge/version-3.0.0-7C3AED?style=for-the-badge)](https://github.com/Samkelo119/Zephyr-repo)
+[![Deploy](https://img.shields.io/badge/deploy-Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://render.com/deploy?repo=https://github.com/Samkelo119/Zephyr-repo)
+[![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen?style=for-the-badge&logo=github)](https://github.com/Samkelo119/Zephyr-repo/pulls)
+
+<br />
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Samkelo119/Zephyr-repo)
+
+**[Repository](https://github.com/Samkelo119/Zephyr-repo)** · **[WhatsApp Channel](https://whatsapp.com/channel/0029Vb8p6DV8aKvNTp6n8n45)** · **[Community Group](https://chat.whatsapp.com/Bgj197mqQu96rsQiAtCJOC)**
+
+</div>
 
 ---
 
-## 🚀 Quick Start (any host)
+## 📖 Table of Contents
+
+- [Why ZEPHYR-MD](#-why-zephyr-md)
+- [Feature Highlights](#-feature-highlights)
+- [Architecture](#-architecture)
+- [Quick Start](#-quick-start)
+- [Pairing a Number](#-pairing-a-number)
+- [Per-Number Isolation](#-per-number-isolation)
+- [Admin Panels](#-admin-panels)
+- [Deployment](#-deployment)
+- [Environment Variables](#️-environment-variables)
+- [Command Library](#-command-library)
+- [Notable Commands](#-notable-commands)
+- [Project Structure](#️-project-structure)
+- [Security](#-security)
+- [Changelog](#-changelog)
+- [Credits](#-credits)
+
+---
+
+## ✨ Why ZEPHYR-MD
+
+Most WhatsApp bots bolt every number onto one shared blob of state — change a
+setting on one number and every other number changes with it. **ZEPHYR-MD is
+built the other way around:** each paired number is a fully isolated tenant
+with its own session, its own settings, its own command prefix, and its own
+statistics. Pair ten numbers, and they behave like ten independent bots.
+
+| | |
+|---|---|
+| 🧠 | **190+ commands** — downloads, group tools, fun, utilities, math, media and more |
+| 🔒 | **True multi-tenant sessions** — per-number data, prefix and toggles, never shared |
+| 🛡️ | **Admin-aware anti-left** — never re-adds someone an admin removed; only undoes genuine self-leaves |
+| 🎨 | **Per-number channel reactions** — every paired number reacts differently, on a stable daily rotation |
+| 🤖 | **AI chat** (`.ai`) with any OpenAI-compatible key, hot-swappable from the panel |
+| 🖥️ | **Two dashboards** — a public pairing site and a password-protected control center |
+| 🚀 | **One-click Render deploy** with a persistent disk, plus Railway / VPS / Termux support |
+| ♻️ | **Hardened for 24/7** — PM2 config, in-app memory guard, safe native-dependency loading |
+
+---
+
+## 🚀 Feature Highlights
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### 🤖 Automation
+- Auto-read, auto-typing, auto-recording
+- Auto-react to messages & status
+- Anti-call, anti-delete, antilink
+- Auto-status view & save
+- Keyword auto-responders
+- Scheduled reminders (`.remind`)
+
+</td>
+<td width="50%" valign="top">
+
+### 👥 Group Control
+- Mute / unmute specific members
+- Bad-word filtering & slow mode
+- Welcome / goodbye messages
+- Warnings with auto-kick
+- Promote, demote, tag-all, hidetag
+- Lock group info & edits
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### 🧰 Toolkit
+- YouTube, Spotify, TikTok, Instagram, Facebook downloaders
+- Sticker / image / video conversion
+- QR generator, URL shortener, dns, hash
+- Translate, weather, define, whois
+- Encode/decode, ciphers, text effects
+- BMI, loans, tips, bill split, zodiac
+
+</td>
+<td width="50%" valign="top">
+
+### 🎛️ Control
+- Public / private mode per number
+- Per-number command prefix
+- Feature toggles applied live
+- Backup & restore full bot data
+- Broadcast announcements
+- Custom commands from the panel
+
+</td>
+</tr>
+</table>
+
+---
+
+## 🏗️ Architecture
+
+```mermaid
+graph TD
+    A["WhatsApp Users"] --> B["Baileys Multi-File Socket"]
+    B --> C["Message Router"]
+    C --> D["Newpack Commands"]
+    C --> E["Legacy Commands"]
+    C --> F["Per-Session Data Store"]
+    C --> G["Auto-Reply and AI"]
+    B --> H["Group Events: antileft, antilink, welcome"]
+    I["Pairing Website"] --> J["Express plus Socket.IO"]
+    J --> K["Pair Admin Panel: SAMKELO"]
+    J --> L["Admin Panel at /admin"]
+    F --> M["auth_info and data on persistent disk"]
+```
+
+---
+
+## ⚡ Quick Start
 
 ```bash
-git clone <your-repo-url>
-cd Awais_Mini_Bot2-main
+# Clone the repository
+git clone https://github.com/Samkelo119/Zephyr-repo
+cd Zephyr-repo
+
+# Install and start — bootstrap handles npm install for you
 node bootstrap.js
 ```
 
-That's it — `bootstrap.js` installs dependencies automatically the first
-time, then starts the bot. Open the URL your host gives you (or
-`http://localhost:3000`) to scan the QR code or enter a pairing code.
+`bootstrap.js` checks whether dependencies are missing or outdated and runs
+`npm install` automatically, then boots the bot. Prefer the manual route?
+`npm install && node index.js` works exactly the same.
 
-Prefer the manual way? `npm install && node index.js` still works exactly
-the same.
-
----
-
-## 🔐 Admin Panel
-
-Open `/admin` on your bot's URL (e.g. `https://your-bot.example.com/admin`).
-
-**Default password:** `Awais Cyber 923295533214`
-Change it any time by setting the `ADMIN_PANEL_PASSWORD` environment
-variable on your host — no code edit needed.
-
-| Tab | What it does |
-|---|---|
-| 📊 Overview | Live session count, uptime, known groups, banned users |
-| 👥 Users & Bans | Ban/unban any number from using the bot instantly |
-| ⚙️ Features | Toggle auto-react / AI replies / public-private mode per session |
-| 🖼️ Menu Images | Add or remove the images/videos the `.menu` command rotates through |
-| 🔑 API Keys | Replace `openaiApiKey`, `giphyApiKey`, `omdbApiKey`, or add your own — changes apply live, no restart |
-| 📢 Broadcast | Send an announcement to every group the bot knows about |
-| 💾 Backup | Download your full bot data as JSON, or restore from a previous backup |
-| 📈 Stats | See your most-used commands |
-| 🧩 Custom Commands | Add brand-new commands from the panel itself — paste a name + JS code, no restart needed. Runs with the same access level as any hand-written command file (`sock`, `botData`, `require`, etc.) — only paste code you trust. |
-| 📜 Live Logs | Recent server activity, streamed from the bot process |
-| 👨‍👩‍👧‍👦 Groups | See every group the bot is in, with member counts, and leave any of them |
-| 🔐 Security | Change the Admin Panel password (persists across restarts) and restart the bot process |
-
-Security: rate-limited login (5 wrong attempts = 15 min lockout),
-timing-safe password check, signed session cookies, no-cache headers on
-every admin route.
+Open the URL your host gives you (or `http://localhost:3000`) to reach the
+pairing site and generate a QR code or pairing code.
 
 ---
 
-## 📋 Command Categories
+## 📱 Pairing a Number
 
-Run `.menu` inside WhatsApp to see the full, always-up-to-date list. Rough
-breakdown of what's in there:
+1. Open the pairing website at `/` on your deployed URL.
+2. Enter your WhatsApp number **with country code and no `+`** (e.g. `27621834910`).
+3. Choose **QR code** or **pairing code**.
+4. On your phone: **WhatsApp → Linked Devices → Link a Device** and scan / enter the code.
 
-1. **General & Owner** — ping, alive, menu, owner, source
-2. **Downloaders** — YouTube, Facebook, Instagram, TikTok, Spotify, etc.
-3. **Group Management** — kick, add, promote, demote, group info
-4. **Group Admin Lab** (25 cmds) — grouplink, lockgroup, tagadmins, warn, broadcast, exportmembers...
-5. **Fun & Games** — quote, joke, fact, 8ball, flip, dice, rps, ship
-6. **Text Tools** — reverse, binary, base64, calc, count
-7. **Stickers & Media** — sticker, toimg, converters
-8. **Web Utilities** — qr, shorturl, translate, weather, define
-9. **Anti-features** — antilink, antidelete, antistatus, anticall
-10. **Status Tools** — auto view/save status
-11. **Advanced Tools** (26 cmds) — bmi, encrypt/decrypt, hash, password gen, dns...
-12. **Text Encode/Decode** — rot13, urlencode, slugify, camelCase/snake_case/kebab-case
-13. **Text Stats** — word/char count, full stats, vowels, consonants
-14. **Numbers & Math** — roman numerals, percentage, discount, tip, bill split, loan interest, leap year, days-left, zodiac
-15. **Text Effects** — spongebob case, zalgo, fullwidth, smallcaps, strikethrough, mirror, shuffle
-16. **Personal Utility** — `.todo`, `.note`, `.remind`, `.gencode`
-17. **Advanced Moderation** — `.mute` / `.unmute` / `.mutelist`, `.filter`, `.slowmode`, `.autoresponder`
+Each pairing produces its own session directory under `auth_info/`, and its own
+data file under `data/session_data/` — the two never mix.
 
 ---
 
-## 🧩 Notable Commands, Explained
+## 🔒 Per-Number Isolation
 
-### `.filter add/remove/clear <word>`
-Group admins can ban specific words — any message containing one is
-auto-deleted. Great for keeping a group clean without watching it 24/7.
+Every paired number gets a private sandbox:
 
-### `.slowmode <seconds>`
-Limits how often each member can send a message (e.g. `.slowmode 10` =
-one message per 10 seconds per person). `.slowmode 0` disables it.
+| Layer | Where it lives | Isolated? |
+|---|---|---|
+| WhatsApp session | `auth_info/<session>/` | ✅ per number |
+| Settings & toggles | `data/session_data/<session>.json` | ✅ per number |
+| Command prefix | `lib/sessionConfig.js` store | ✅ per number |
+| Statistics & warnings | `data/session_data/<session>.json` | ✅ per number |
+| Channel reaction slot | `data/channel_react_index.json` | ✅ per number |
 
-### `.mute` / `.unmute` (reply or tag a user)
-Silently deletes a specific person's messages until unmuted — useful for
-calming someone down without removing them from the group.
-
-### `.autoresponder add <keyword> | <reply>`
-Set up automatic replies for common questions, e.g.
-`.autoresponder add price | Check the pinned message for our price list.`
-Anyone who types a message containing "price" gets the reply automatically.
-
-### `.todo`, `.note`, `.remind`
-Personal productivity commands — per-user to-do lists, saved notes, and
-timed reminders, right inside WhatsApp.
+Changing the prefix on one number, muting a member on another, or toggling a
+feature on a third affects **only** that number. Nothing bleeds across tenants.
 
 ---
 
-## 📖 Full Command Reference (180 commands)
+## 🖥️ Admin Panels
 
-Auto-generated straight from the code, so this list is always accurate —
-every one of these is wired up and working. Run `.menu` in WhatsApp for
-the categorized, live version with usage notes.
+### 1. Pairing-Site Panel — `[ ADMIN PANEL ]`
+
+Open the pairing site and click **`[ ADMIN PANEL ]`** in the page, or go to
+`/api/admin/...` directly.
+
+- **Username:** `SAMKELO`  ·  **Password:** `MRDIEHARD`
+- Lists every paired number with a live 🟢/🔴 status dot
+- Click a number to see its runtime, groups, feature toggles, top commands
+  and a live-streaming activity log
+
+### 2. Control Center — `/admin`
+
+- **Default password:** `𝚉𝙴𝙿𝙷𝚈𝚁 923295533214` (override with `ADMIN_PANEL_PASSWORD`)
+- Overview, users & bans, live feature toggles, menu images
+- Hot-swappable API keys — no redeploy
+- Broadcast, backup / restore, command stats
+- Custom commands and live server logs
+
+---
+
+## ☁️ Deployment
+
+| Platform | Support | Persistence |
+|---|---|---|
+| **Render** (recommended) | `render.yaml` blueprint + 1 GB disk | ✅ persistent disk |
+| Railway | `railway.json` included | ✅ volume by default |
+| VPS / Katabump | `node bootstrap.js` | ✅ your own disk |
+| Termux (Android) | `termux-setup.sh` | ✅ phone storage |
+| Replit | `.replit` included | ⚠️ needs Reserved VM for 24/7 |
+| Heroku | `Procfile` + `app.json` | ⚠️ ephemeral filesystem |
+
+### One-click Render
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Samkelo119/Zephyr-repo)
+
+Render reads `render.yaml`, mounts a 1 GB persistent disk at `/var/data`, and
+`bootstrap.js` symlinks `auth_info/` and `data/` onto it — so your paired
+sessions survive every redeploy. See **[DEPLOY.md](./DEPLOY.md)** for the full
+walkthrough and free-plan caveats.
+
+---
+
+## ⚙️ Environment Variables
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `OWNER_NUMBER` | Your WhatsApp number, country code, no `+` | `27621834910` |
+| `PORT` | Web / health-check port | `3000` |
+| `ADMIN_PANEL_PASSWORD` | Overrides the `/admin` password | `𝚉𝙴𝙿𝙷𝚈𝚁 923295533214` |
+| `PAIR_ADMIN_USER` | Pairing-site admin username | `SAMKELO` |
+| `PAIR_ADMIN_PASS` | Pairing-site admin password | `MRDIEHARD` |
+| `DATA_PERSIST_DIR` | Directory to persist `auth_info/` + `data/` | unset |
+| `APP_URL` | Public base URL used in generated links | auto-detected |
+| `OPENAI_API_KEY` | For `.ai` (also settable from the panel) | none |
+| `AI_BASE_URL` | OpenAI-compatible endpoint | `https://api.openai.com/v1` |
+| `GIPHY_API_KEY` | Reserved for GIF commands | built-in demo key |
+| `OMDB_API_KEY` | For `.movie` | built-in demo key |
+
+---
+
+## 📚 Command Library
+
+Run `.menu` inside WhatsApp for the live, categorized list. Rough map:
+
+| # | Category | # | Category |
+|---|---|---|---|
+| 1 | General & Owner | 10 | Status tools |
+| 2 | Downloaders | 11 | Advanced tools |
+| 3 | Group management | 12 | Text encode / decode |
+| 4 | Group admin lab | 13 | Text statistics |
+| 5 | Fun & games | 14 | Numbers & math |
+| 6 | Text tools | 15 | Text effects |
+| 7 | Stickers & media | 16 | Personal utility |
+| 8 | Web utilities | 17 | Advanced moderation |
+| 9 | Anti-features | | |
+
+<details>
+<summary><b>📜 Click to expand the full command list</b></summary>
+
+<br />
 
 | Command | Command | Command | Command |
 |---|---|---|---|
@@ -179,94 +320,147 @@ the categorized, live version with usage notes.
 | .dice | .loaninterest | .ship | .wordcount |
 | .discount | .lockedit | .shorturl | .zalgo |
 | .dns | .lockgroup | .shuffle | .zodiac |
+| .repo | .git | .github | .source |
+
+</details>
 
 ---
 
-## 🩹 Fixes & Improvements Log
+## 🧩 Notable Commands
 
-A running record of what's been fixed/added, so it's clear what changed
-and why:
+<details>
+<summary><b>.filter add / remove / clear &lt;word&gt;</b></summary>
 
-- **Fixed: random "unlimited" duplicate messages.** Root cause was
-  WhatsApp re-sending recent chat history after every reconnect, which
-  the bot was treating as brand-new live commands and re-executing —
-  every reconnect meant old replies fired again, in whatever chat they
-  originally happened in. Fixed with a message-age guard: anything
-  older than 60 seconds by the time it's received is now ignored as a
-  replay, not processed as live.
-- **Fixed: bot data not merging with new fields.** Upgrading used to
-  fully replace saved data with whatever was in the old save file, so
-  brand-new fields (mute lists, filters, etc.) could be silently
-  missing until first used. Now merges over sane defaults on every load.
-- **Fixed: one bad native dependency could crash the whole bot.**
-  `sharp` (used for stickers) is now loaded safely — if it fails on a
-  given host, only `.sticker`/`.toimg` show an error; the other 178
-  commands are unaffected instead of the entire bot failing to start.
-- **Fixed: ffmpeg not working on Termux.** Auto-detects Termux (Android's
-  Bionic libc breaks the prebuilt ffmpeg binary) and switches to the
-  system `ffmpeg` automatically.
-- **Added:** auto npm install on start (`bootstrap.js`), Admin Panel with
-  ban/unban, live feature toggles, broadcast, backup/restore, command
-  stats, and full API key management, 37+ new utility commands, advanced
-  moderation (mute/filter/slowmode/autoresponder), and a heavy/premium
-  boxed design applied automatically to every command's reply.
+Ban specific words per group — any message containing one is auto-deleted.
+Ideal for keeping a group clean without moderating around the clock.
 
----
+</details>
 
+<details>
+<summary><b>.slowmode &lt;seconds&gt;</b></summary>
 
+Rate-limits each member. `.slowmode 10` allows one message every 10 seconds per
+person; `.slowmode 0` disables it.
 
-Full step-by-step instructions for every host are in [`DEPLOY.md`](./DEPLOY.md):
-Railway, Replit, Heroku, Katabump, Termux, a generic VPS checklist, and the
-Vercel proxy setup for both the Admin Panel and the pairing dashboard.
+</details>
 
-**Quick note on Vercel:** the bot's live WhatsApp connection cannot run on
-Vercel itself (no platform's serverless functions can hold a persistent
-socket open — this is true everywhere, not a limitation specific to this
-project). What *can* run on Vercel is a lightweight proxy (`vercel-admin/`
-folder, included) that gives your Admin Panel and pairing dashboard a nice
-Vercel URL while the real bot keeps running on Railway/Replit/Termux/etc.
+<details>
+<summary><b>.mute / .unmute</b></summary>
 
----
+Reply to or tag a member to silently delete their messages until unmuted —
+calms things down without removing anyone from the group.
 
-## ⚙️ Environment Variables
+</details>
 
-| Variable | Purpose | Default |
-|---|---|---|
-| `OWNER_NUMBER` | Your WhatsApp number, no `+` | `923295533214` |
-| `PORT` | Web server port | `3000` |
-| `ADMIN_PANEL_PASSWORD` | Overrides the Admin Panel password | `Awais Cyber 923295533214` |
-| `OPENAI_API_KEY` | For `.ai` command | none — set via Admin Panel instead |
-| `GIPHY_API_KEY` | Reserved for future GIF commands | built-in demo key |
-| `OMDB_API_KEY` | For `.movie` command | built-in demo key |
+<details>
+<summary><b>.autoresponder add &lt;keyword&gt; | &lt;reply&gt;</b></summary>
 
-API keys can also be set/replaced entirely from the Admin Panel's 🔑 API
-Keys tab — no redeploy required either way.
+```text
+.autoresponder add price | Check the pinned message for our price list.
+```
+
+Anyone typing a message containing "price" gets the reply automatically.
+
+</details>
+
+<details>
+<summary><b>.repo</b></summary>
+
+Posts a styled card linking back to this repository — great for advertising
+your fork.
+
+</details>
 
 ---
 
 ## 🗂️ Project Structure
 
-```
-├── index.js               # Main bot logic, message handling, command router
-├── bootstrap.js            # Auto-installer launcher (use this to start)
-├── settings.js             # Static config (bot name, version, prefix)
-├── pair.html                # Pairing dashboard (QR / pairing code UI)
-├── admin-panel/             # Admin Panel frontend (login + dashboard)
+```text
+Zephyr-repo/
+├── index.js                # Main bot: socket, message router, group events
+├── bootstrap.js            # Auto-installer launcher + persistent-storage setup
+├── render.yaml             # Render Blueprint (web service + disk)
+├── pair.html               # Pairing site + pairing-site admin panel
+├── settings.js             # Brand, prefix, timezone, feature defaults
+├── config.js               # Globals: owner, channel links, community group
+├── ecosystem.config.js     # PM2 process config for 24/7
+├── admin-panel/            # /admin control-center frontend
 ├── lib/
-│   ├── adminAuth.js         # Password check, sessions, rate limiting
-│   ├── adminPanel.js        # Admin Panel Express routes
-│   ├── apiKeys.js           # Hot-swappable API key store
-│   └── cookie.js             # Minimal cookie helper (no extra dependency)
-├── commands/                # All command implementations, grouped by theme
-├── data/                    # Runtime data (botData.json, api_keys.json) — gitignored
-├── auth_info/                # WhatsApp session credentials — gitignored, never share this
-├── vercel-admin/             # Optional: Vercel-hosted proxy for the dashboards
-└── DEPLOY.md                 # Full deployment instructions for every host
+│   ├── sessionConfig.js    # Per-number prefix / command config
+│   ├── channelReact.js     # Per-number channel-reaction assignment
+│   ├── pairAdmin.js        # Pairing-site admin backend (SAMKELO)
+│   ├── adminPanel.js       # /admin Express routes
+│   ├── adminAuth.js        # Password, sessions, rate limiting
+│   ├── apiKeys.js          # Hot-swappable API key store
+│   └── cookie.js           # Minimal cookie helper
+├── commands/               # 190+ commands grouped by theme
+├── data/                   # Runtime data + per-session stores (gitignored)
+├── auth_info/              # WhatsApp session credentials (gitignored)
+└── DEPLOY.md               # Deployment guide for every host
 ```
+
+---
+
+## 🔐 Security
+
+- **Least-privilege static hosting** — only `/assets`, `/tributes` and `/hosted`
+  are exposed; `config.js`, `data/` and `auth_info/` are never publicly served.
+- **Rate-limited admin login** — 5 failed attempts triggers a 15-minute lockout.
+- **Timing-safe password checks** and signed, httpOnly session cookies.
+- **No-cache headers** on every admin API route.
+- **Secrets stay out of git** — `.gitignore` blocks `auth_info/`, `data/`,
+  `.env` and logs.
+
+> Never commit your `auth_info/` folder. It contains the credentials that link
+> your account to the bot.
+
+---
+
+## 🩹 Changelog
+
+- **Added: true per-number isolation.** Each paired number now owns its own
+  data file, prefix and toggles. Changing one number can no longer affect any
+  other number.
+- **Fixed: admin-aware anti-left.** Baileys reports voluntary leaves and admin
+  kicks as the same `remove` action, which used to make the bot re-add members
+  an admin had just removed. It now trusts owner / sudo / admins / the group
+  creator and only undoes genuine self-leaves.
+- **Added: per-number channel reactions.** Every paired number reacts with a
+  distinct emoji to channel posts, on a stable daily rotation.
+- **Added: pairing-site admin panel.** Log in as `SAMKELO` to browse every
+  paired number and inspect its live WhatsApp data.
+- **Added: Render-ready deployment.** `render.yaml` Blueprint, persistent disk,
+  and `DATA_PERSIST_DIR` support in `bootstrap.js`.
+- **Security: stopped serving the project root.** Previously `config.js`,
+  `data/bot_data.json` (API keys) and `auth_info/` were downloadable over HTTP.
+- **Hardened for 24/7.** PM2 config with memory-based restart plus an in-app
+  memory guard.
+- **Fixed: duplicate "replayed" messages after reconnects** via a 60-second
+  message-age guard.
+- **Fixed: bot data not merging with new fields on upgrade** — data now merges
+  over sane defaults on every load.
+- **Fixed: a bad native dependency crashing the whole bot** — `sharp` is loaded
+  safely; only `.sticker`/`.toimg` are affected if it fails.
+- **Fixed: ffmpeg on Termux** — auto-detects Android and uses system ffmpeg.
+- **Added:** `bootstrap.js` auto-install, the `/admin` panel, and 37+ utility
+  commands.
 
 ---
 
 ## ❤️ Credits
 
-Built and maintained by **Awais MD**. Join the WhatsApp channel for updates:
-https://whatsapp.com/channel/0029VbBzlMlIt5rzSeMBE922
+<div align="center">
+
+**Built and maintained by MRDIEHARD TECH**
+
+`Samkelo119`
+
+<br />
+
+[![Repository](https://img.shields.io/badge/GitHub-Zephyr--repo-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Samkelo119/Zephyr-repo)
+[![WhatsApp Channel](https://img.shields.io/badge/WhatsApp-Channel-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://whatsapp.com/channel/0029Vb8p6DV8aKvNTp6n8n45)
+[![Community Group](https://img.shields.io/badge/WhatsApp-Community%20Group-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://chat.whatsapp.com/Bgj197mqQu96rsQiAtCJOC)
+
+<sub>Powered by Baileys · Built with Node.js · Deployed on Render</sub>
+
+</div>
