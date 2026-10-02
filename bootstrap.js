@@ -41,6 +41,28 @@ function runInstall() {
     }
 }
 
+// 📦 Optional persistent storage (Render Disk, Railway volume, VPS path...).
+// When DATA_PERSIST_DIR is set, auth_info/ and data/ are symlinked onto that
+// directory so paired WhatsApp sessions and bot data survive redeploys and
+// restarts. Leave it unset to keep using the default in-project folders.
+const persistDir = process.env.DATA_PERSIST_DIR;
+if (persistDir) {
+    try {
+        fs.mkdirSync(persistDir, { recursive: true });
+        for (const name of ['auth_info', 'data']) {
+            const target = path.join(persistDir, name);
+            const link = path.join(ROOT, name);
+            fs.mkdirSync(target, { recursive: true });
+            let exists = false;
+            try { fs.lstatSync(link); exists = true; } catch (e) {}
+            if (!exists) fs.symlinkSync(target, link, 'dir');
+        }
+        console.log(`✅ Persistent storage ready at ${persistDir}\n`);
+    } catch (e) {
+        console.error('⚠️  Persistent storage setup failed:', e.message);
+    }
+}
+
 if (needsInstall()) {
     runInstall();
 } else {

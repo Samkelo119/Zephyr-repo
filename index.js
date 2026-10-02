@@ -134,7 +134,14 @@ initOpenAI();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname)));
+
+// Only expose the folders that are meant to be public. Serving the whole
+// project root (the old behaviour) would leak config.js, data/bot_data.json
+// (which can hold API keys) and the WhatsApp session files in auth_info/
+// over the public web once the bot is deployed.
+app.use('/assets', express.static(path.join(__dirname, 'assets')));
+app.use('/tributes', express.static(path.join(__dirname, 'tributes')));
+app.use('/hosted', express.static(path.join(__dirname, 'hosted')));
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'pair.html'));

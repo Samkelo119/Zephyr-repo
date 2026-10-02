@@ -1,0 +1,39 @@
+# Render Blueprint for ZEPHYR-MD
+# Docs: https://render.com/docs/blueprint-spec
+#
+# Deploy: push this repo to GitHub, then in Render choose
+#   New + -> Blueprint -> select the Zephyr-repo.
+#
+# NOTE ON PLAN / DISK
+# A WhatsApp bot must keep its paired session (`auth_info/`) across restarts,
+# so this blueprint attaches a 1GB persistent disk and therefore targets a
+# PAID instance (`plan: starter`). The free plan has no disks + spins down
+# after inactivity; if you deploy on free, delete the `disk:` block and the
+# `DATA_PERSIST_DIR` env var and expect to re-pair after every restart.
+services:
+  - type: web
+    name: zephyr-md-bot
+    runtime: node
+    plan: starter
+    buildCommand: npm install --no-audit --no-fund && touch node_modules/.install-complete
+    startCommand: node bootstrap.js
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
+      # Keep WhatsApp sessions + bot data on the mounted disk.
+      - key: DATA_PERSIST_DIR
+        value: /var/data
+      # Your WhatsApp number with country code, no "+" (e.g. 27621834910).
+      - key: OWNER_NUMBER
+        sync: false
+      # Optional overrides — leave unset to use the built-in defaults.
+      - key: ADMIN_PANEL_PASSWORD
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+    disk:
+      name: zephyr-data
+      mountPath: /var/data
+      sizeGB: 1
