@@ -19,8 +19,8 @@ notes for each platform you asked about:
 4. **Persistence:** `render.yaml` mounts a 1GB disk at `/var/data` and sets `DATA_PERSIST_DIR=/var/data`.
    `bootstrap.js` symlinks `auth_info/` and `data/` onto that disk, so your paired sessions and bot data
    survive redeploys and restarts — you only pair once.
-   - This requires a **paid instance** (`plan: starter`); Render does not offer disks on the free plan.
-   - On the free plan, delete the `disk:` block and the `DATA_PERSIST_DIR` env var. The bot still runs, but the
+   - This requires a **paid instance** (`plan: 0.5c-512mb`, Render's smallest paid web service); Render does not offer disks on the free plan.
+   - On the free plan, set `plan: free` and delete the `disk:` block and the `DATA_PERSIST_DIR` env var. The bot still runs, but the
      filesystem is ephemeral and the service spins down after ~15 min idle, so you must re-pair after restarts
      and it will not stay online 24/7. For a real 24/7 bot use a paid Render instance, Railway, or a VPS.
 
