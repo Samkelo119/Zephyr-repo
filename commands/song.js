@@ -1,8 +1,12 @@
 const axios = require('axios');
-const yts = require('yt-search');
 const fs = require('fs').promises;
 const path = require('path');
 const { toAudio } = require('../lib/converter');
+
+let playdl = null;
+try { playdl = require('play-dl'); } catch (e) { playdl = null; }
+
+const BASE = 'https://apis.davidcyriltech.my.id';
 
 const AXIOS_DEFAULTS = {
     timeout: 60000,
@@ -19,141 +23,141 @@ async function tryRequest(getter, attempts = 3) {
             return await getter();
         } catch (err) {
             lastError = err;
-            if (attempt < attempts) {
-                await new Promise(r => setTimeout(r, 1000 * attempt));
-            }
+            if (attempt < attempts) await new Promise(r => setTimeout(r, 1000 * attempt));
         }
     }
     throw lastError;
 }
 
-// EliteProTech API - Primary
+// ---- Primary resolver (play-dl) ---------------------------------------------
+async function searchYoutube(query) {
+    const isUrl = /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)/.test(query);
+    if (isUrl) {
+        if (playdl) {
+            try {
+                const info = await playdl.video_info(query);
+                const d = info.video_details;
+                return {
+                    url: query,
+                    title: d.title || 'Unknown',
+                    artist: d.channel?.name || 'Unknown',
+                    thumbnail: d.thumbnails?.slice(-1)[0]?.url || '',
+                    duration: d.durationRaw || ''
+                };
+            } catch (e) {}
+        }
+        const id = query.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/)?.[1];
+        return { url: query, title: 'YouTube Audio', artist: 'Unknown', thumbnail: id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : '', duration: '' };
+    }
+    if (playdl) {
+        try {
+            const results = await playdl.search(query, { source: { youtube: 'video' }, limit: 1 });
+            if (results?.length) {
+                const v = results[0];
+                return {
+                    url: v.url,
+                    title: v.title || 'Unknown',
+                    artist: v.channel?.name || 'Unknown',
+                    thumbnail: v.thumbnails?.slice(-1)[0]?.url || '',
+                    duration: v.durationRaw || ''
+                };
+            }
+        } catch (e) {}
+    }
+    // Fallback: yt-search
+    const yts = require('yt-search');
+    const search = await yts(query);
+    if (!search || !search.videos.length) throw new Error('No results found for: ' + query);
+    const v = search.videos[0];
+    return { url: v.url, title: v.title || 'Unknown', artist: v.author?.name || 'Unknown', thumbnail: v.thumbnail || '', duration: v.timestamp || '' };
+}
+
+async function downloadMp3Primary(videoUrl) {
+    const { data } = await axios.get(`${BASE}/download/ytmp3?url=${encodeURIComponent(videoUrl)}`, { timeout: 30000 });
+    const link = data?.result?.download_url || data?.result?.downloadUrl || data?.result?.url || data?.url || data?.link;
+    if (!link) throw new Error('No download link in API response');
+    return link;
+}
+
+// ---- Fallback resolvers ------------------------------------------------------
 async function getEliteProTechDownloadByUrl(youtubeUrl) {
     const apiUrl = `https://eliteprotech-apis.zone.id/ytdown?url=${encodeURIComponent(youtubeUrl)}&format=mp3`;
     const res = await tryRequest(() => axios.get(apiUrl, AXIOS_DEFAULTS));
-    if (res?.data?.success && res?.data?.downloadURL) {
-        return {
-            download: res.data.downloadURL,
-            title: res.data.title
-        };
-    }
+    if (res?.data?.success && res?.data?.downloadURL) return { download: res.data.downloadURL, title: res.data.title };
     throw new Error('EliteProTech returned no download');
 }
 
 async function getYupraDownloadByUrl(youtubeUrl) {
     const apiUrl = `https://api.yupra.my.id/api/downloader/ytmp3?url=${encodeURIComponent(youtubeUrl)}`;
     const res = await tryRequest(() => axios.get(apiUrl, AXIOS_DEFAULTS));
-    if (res?.data?.success && res?.data?.data?.download_url) {
-        return {
-            download: res.data.data.download_url,
-            title: res.data.data.title,
-            thumbnail: res.data.data.thumbnail
-        };
-    }
+    if (res?.data?.success && res?.data?.data?.download_url) return { download: res.data.data.download_url, title: res.data.data.title, thumbnail: res.data.data.thumbnail };
     throw new Error('Yupra returned no download');
 }
 
 async function getOkatsuDownloadByUrl(youtubeUrl) {
     const apiUrl = `https://okatsu-rolezapiiz.vercel.app/downloader/ytmp3?url=${encodeURIComponent(youtubeUrl)}`;
     const res = await tryRequest(() => axios.get(apiUrl, AXIOS_DEFAULTS));
-    if (res?.data?.dl) {
-        return {
-            download: res.data.dl,
-            title: res.data.title,
-            thumbnail: res.data.thumb
-        };
-    }
+    if (res?.data?.dl) return { download: res.data.dl, title: res.data.title, thumbnail: res.data.thumb };
     throw new Error('Okatsu returned no download');
 }
 
 async function songCommand(sock, chatId, message) {
     try {
-        // Loading reactions
-        const loadEmojis = ['📥', '⏳', '🎵'];
-        for (const emoji of loadEmojis) {
-            await sock.sendMessage(chatId, { react: { text: emoji, key: message.key } });
+        for (const emoji of ['📥', '⏳', '🎵']) {
+            try { await sock.sendMessage(chatId, { react: { text: emoji, key: message.key } }); } catch (e) {}
         }
 
         const messageContent = message.message?.ephemeralMessage?.message || message.message?.viewOnceMessage?.message || message.message?.viewOnceMessageV2?.message || message.message;
         const text = (messageContent.conversation || messageContent.extendedTextMessage?.text || messageContent.imageMessage?.caption || messageContent.videoMessage?.caption || '').trim();
-        const query = text.replace(/^\.song\s+/i, '').trim();
+        const query = text.replace(/^\.(song|play|music|ytmp3|ytsong|ytaudio|yta)\s+/i, '').trim();
 
-        if (!query || query.toLowerCase() === '.song') {
-            await sock.sendMessage(chatId, { text: 'Usage: .song <song name or YouTube link>' }, { quoted: message });
+        if (!query || /^\.(song|play|music|ytmp3|ytsong|ytaudio|yta)$/i.test(query)) {
+            await sock.sendMessage(chatId, { text: '🎵 Usage: `.play <song name or YouTube link>`\nExample: `.play Blinding Lights`' }, { quoted: message });
             return;
         }
 
-        let video;
-        if (query.includes('youtube.com') || query.includes('youtu.be')) {
-            video = { url: query, title: 'YouTube Audio', thumbnail: 'https://i.postimg.cc/y6GV9P3H/file-000000004c307206bc366893b817568c-(1).png' };
-        } else {
-            const search = await yts(query);
-            if (!search || !search.videos.length) {
-                await sock.sendMessage(chatId, { text: 'No results found.' }, { quoted: message });
-                return;
-            }
-            video = search.videos[0];
-        }
+        await sock.sendMessage(chatId, { text: `🔍 Searching: *${query}*...` }, { quoted: message });
 
-        // Inform user
+        const track = await searchYoutube(query);
+
         await sock.sendMessage(chatId, {
-            image: { url: video.thumbnail },
-            caption: `🎵 Downloading: *${video.title}*\n⏱ Duration: ${video.timestamp || 'N/A'}`
+            image: { url: track.thumbnail || 'https://files.catbox.moe/5uli5p.jpeg' },
+            caption: `🎵 *${track.title}*\n🎤 *Artist:* ${track.artist || 'Unknown'}\n⏱ *Duration:* ${track.duration || 'N/A'}\n\n_Downloading..._`
         }, { quoted: message });
 
-        // Try multiple APIs with fallback chain
-        let audioBuffer;
+        let audioBuffer = null;
+        let finalTitle = track.title;
         let downloadSuccess = false;
-        let finalTitle = video.title;
-        
+
+        // Primary: davidcyriltech API
         const apiMethods = [
-            { name: 'EliteProTech', method: () => getEliteProTechDownloadByUrl(video.url) },
-            { name: 'Yupra', method: () => getYupraDownloadByUrl(video.url) },
-            { name: 'Okatsu', method: () => getOkatsuDownloadByUrl(video.url) },
-            { name: 'Alya', method: async () => {
-                const res = await axios.get(`https://api.alyachan.pro/api/ytmp3?url=${encodeURIComponent(video.url)}&apikey=${require('../lib/apiKeys').get('songApiKey')}`, AXIOS_DEFAULTS);
-                if (res.data.status && res.data.data.url) return { download: res.data.data.url, title: res.data.data.title };
-                throw new Error('Alya failed');
-            }},
-            { name: 'Vreden', method: async () => {
-                const res = await axios.get(`https://api.vreden.my.id/api/ytmp3?url=${encodeURIComponent(video.url)}`, AXIOS_DEFAULTS);
-                if (res.data.status && res.data.result.download.url) return { download: res.data.result.download.url, title: res.data.result.metadata.title };
-                throw new Error('Vreden failed');
-            }}
+            { name: 'DavidCyril', method: async () => ({ download: await downloadMp3Primary(track.url), title: track.title }) },
+            { name: 'EliteProTech', method: () => getEliteProTechDownloadByUrl(track.url) },
+            { name: 'Yupra', method: () => getYupraDownloadByUrl(track.url) },
+            { name: 'Okatsu', method: () => getOkatsuDownloadByUrl(track.url) }
         ];
-        
+
         for (const apiMethod of apiMethods) {
             try {
                 const audioData = await apiMethod.method();
                 const audioUrl = audioData.download;
-                finalTitle = audioData.title || video.title;
-                
+                finalTitle = audioData.title || track.title;
                 if (!audioUrl) continue;
-                
+
                 const audioResponse = await axios.get(audioUrl, {
                     responseType: 'arraybuffer',
                     timeout: 120000,
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0',
-                        'Accept': '*/*'
-                    }
+                    headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': '*/*' }
                 });
                 audioBuffer = Buffer.from(audioResponse.data);
-                
-                if (audioBuffer && audioBuffer.length > 0) {
-                    downloadSuccess = true;
-                    break;
-                }
+                if (audioBuffer && audioBuffer.length > 0) { downloadSuccess = true; break; }
             } catch (err) {
-                console.log(`${apiMethod.name} failed:`, err.message);
+                console.log(`[song] ${apiMethod.name} failed:`, err.message);
             }
         }
-        
-        if (!downloadSuccess) {
-            throw new Error('All download sources failed.');
-        }
 
-        // Detect format and convert if needed
+        if (!downloadSuccess) throw new Error('All download sources failed.');
+
         const firstBytes = audioBuffer.slice(0, 4).toString('hex');
         let fileExtension = 'mp3';
         if (firstBytes.startsWith('000000') || audioBuffer.slice(4, 8).toString('ascii') === 'ftyp') fileExtension = 'm4a';
@@ -165,16 +169,24 @@ async function songCommand(sock, chatId, message) {
             finalBuffer = await toAudio(audioBuffer, fileExtension);
         }
 
+        const safeName = (finalTitle || 'song').replace(/[^\w\s-]/g, '').trim().slice(0, 50) || 'song';
+
         await sock.sendMessage(chatId, {
             audio: finalBuffer,
             mimetype: 'audio/mpeg',
-            fileName: `${finalTitle.replace(/[^\w\s-]/g, '')}.mp3`,
+            fileName: `${safeName}.mp3`,
             ptt: false
+        }, { quoted: message });
+
+        await sock.sendMessage(chatId, {
+            document: finalBuffer,
+            mimetype: 'audio/mpeg',
+            fileName: `${safeName}.mp3`
         }, { quoted: message });
 
     } catch (err) {
         console.error('Song command error:', err);
-        await sock.sendMessage(chatId, { text: `❌ Error: ${err.message}` }, { quoted: message });
+        await sock.sendMessage(chatId, { text: `❌ Download failed: ${err.message}` }, { quoted: message });
     }
 }
 

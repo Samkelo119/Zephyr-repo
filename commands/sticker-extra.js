@@ -41,7 +41,7 @@ async function sticker(sock, from, msg) {
         if (!sharp) return sock.sendMessage(from, { text: '❌ Sticker feature unavailable on this host (sharp failed to load). See DEPLOY.md → Termux notes.' }, { quoted: msg });
         const media = getQuotedMedia(msg);
         if (!media || media.mediaType !== 'image') {
-            return sock.sendMessage(from, { text: '❌ Kisi image ko reply kar ke `.sticker` bhejo.' }, { quoted: msg });
+            return sock.sendMessage(from, { text: '❌ Reply to an image with `.sticker`.' }, { quoted: msg });
         }
         await sock.sendMessage(from, { react: { text: '⏳', key: msg.key } });
         const buffer = await downloadBuffer(media.data, media.mediaType);
@@ -51,7 +51,7 @@ async function sticker(sock, from, msg) {
             .toBuffer();
         await sock.sendMessage(from, { sticker: webp }, { quoted: msg });
     } catch (e) {
-        await sock.sendMessage(from, { text: '❌ Sticker banane mein error aayi.' }, { quoted: msg });
+        await sock.sendMessage(from, { text: '❌ Error while creating the sticker.' }, { quoted: msg });
     }
 }
 
@@ -60,14 +60,14 @@ async function toimg(sock, from, msg) {
         if (!sharp) return sock.sendMessage(from, { text: '❌ This feature unavailable on this host (sharp failed to load). See DEPLOY.md → Termux notes.' }, { quoted: msg });
         const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
         if (!quoted?.stickerMessage) {
-            return sock.sendMessage(from, { text: '❌ Kisi sticker ko reply kar ke `.toimg` bhejo.' }, { quoted: msg });
+            return sock.sendMessage(from, { text: '❌ Reply to a sticker with `.toimg`.' }, { quoted: msg });
         }
         await sock.sendMessage(from, { react: { text: '⏳', key: msg.key } });
         const buffer = await downloadBuffer(quoted.stickerMessage, 'sticker');
         const png = await sharp(buffer).png().toBuffer();
         await sock.sendMessage(from, { image: png, caption: '✅ Sticker to Image done.' }, { quoted: msg });
     } catch (e) {
-        await sock.sendMessage(from, { text: '❌ Convert nahi ho saka.' }, { quoted: msg });
+        await sock.sendMessage(from, { text: '❌ Conversion failed.' }, { quoted: msg });
     }
 }
 

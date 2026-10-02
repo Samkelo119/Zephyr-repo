@@ -17,7 +17,7 @@ function renderSelectorHtml(servers) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>⚡ AWAIS CYBER BOT — Choose Server</title>
+<title>ZEPHYR-MD BOT — Choose Server</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -45,7 +45,7 @@ function renderSelectorHtml(servers) {
   <h1>⚡ Choose a Bot Server</h1>
   <p>Pick which deployment to connect to</p>
   <div class="list">${cards}</div>
-  <footer>Powered By Awais MD</footer>
+  <footer>Powered by ZEPHYR-MD</footer>
 </body>
 </html>`;
 }

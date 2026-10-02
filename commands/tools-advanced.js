@@ -33,7 +33,7 @@ async function palindrome(sock, from, msg, q) {
     if (!q) return sock.sendMessage(from, { text: '⚠️ Usage: `.palindrome <text>`' }, { quoted: msg });
     const clean = q.toLowerCase().replace(/[^a-z0-9]/g, '');
     const isPal = clean === clean.split('').reverse().join('');
-    await sock.sendMessage(from, { text: isPal ? '✅ Yeh palindrome hai!' : '❌ Yeh palindrome nahi hai.' }, { quoted: msg });
+    await sock.sendMessage(from, { text: isPal ? '✅ This is a palindrome!' : '❌ This is not a palindrome.' }, { quoted: msg });
 }
 
 async function password(sock, from, msg, args) {
@@ -85,7 +85,7 @@ async function anagram(sock, from, msg, q) {
     if (parts.length !== 2) return sock.sendMessage(from, { text: '⚠️ Usage: `.anagram word1 word2`' }, { quoted: msg });
     const norm = s => s.toLowerCase().split('').sort().join('');
     const isAna = norm(parts[0]) === norm(parts[1]);
-    await sock.sendMessage(from, { text: isAna ? '✅ Yeh anagram hain!' : '❌ Anagram nahi hain.' }, { quoted: msg });
+    await sock.sendMessage(from, { text: isAna ? '✅ These are anagrams!' : '❌ These are not anagrams.' }, { quoted: msg });
 }
 
 async function vowels(sock, from, msg, q) {
@@ -169,7 +169,7 @@ async function currency(sock, from, msg, args) {
         if (!result) throw new Error('no rate');
         await sock.sendMessage(from, { text: `💱 *Currency Convert*\n\n${amount} ${from_c} = *${result} ${to_c}*` }, { quoted: msg });
     } catch (e) {
-        await sock.sendMessage(from, { text: '❌ Conversion nahi ho saki (currency code check karo, PKR jaisi kuch minor currencies is free API mein support nahi hoti).' }, { quoted: msg });
+        await sock.sendMessage(from, { text: '❌ Conversion failed. Check the currency code (some minor currencies are not supported by the free API).' }, { quoted: msg });
     }
 }
 
@@ -183,7 +183,7 @@ async function lyrics(sock, from, msg, q) {
         if (!text) throw new Error('empty');
         await sock.sendMessage(from, { text: `🎵 *${artist} - ${song}*\n\n${text}` }, { quoted: msg });
     } catch (e) {
-        await sock.sendMessage(from, { text: '❌ Lyrics nahi mile.' }, { quoted: msg });
+        await sock.sendMessage(from, { text: '❌ No lyrics found.' }, { quoted: msg });
     }
 }
 
@@ -193,7 +193,7 @@ async function unshorten(sock, from, msg, q) {
         const res = await axios.get(q, { maxRedirects: 10, timeout: 15000 });
         await sock.sendMessage(from, { text: `🔗 *Final URL:*\n${res.request?.res?.responseUrl || res.request?.responseURL || q}` }, { quoted: msg });
     } catch (e) {
-        await sock.sendMessage(from, { text: '❌ Link resolve nahi ho saka.' }, { quoted: msg });
+        await sock.sendMessage(from, { text: '❌ Could not resolve the link.' }, { quoted: msg });
     }
 }
 
@@ -203,7 +203,7 @@ async function dnslookup(sock, from, msg, q) {
         const addresses = await dns.resolve4(q.replace(/^https?:\/\//, '').split('/')[0]);
         await sock.sendMessage(from, { text: `🌐 *DNS (${q}):*\n${addresses.join('\n')}` }, { quoted: msg });
     } catch (e) {
-        await sock.sendMessage(from, { text: '❌ Domain resolve nahi hua.' }, { quoted: msg });
+        await sock.sendMessage(from, { text: '❌ Could not resolve the domain.' }, { quoted: msg });
     }
 }
 

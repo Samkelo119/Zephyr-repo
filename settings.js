@@ -1,87 +1,39 @@
 module.exports = {
-
-    // ==============================
-    // 🤖 ZEPHYR MD BOT CONFIG
-    // ==============================
-
-    botName: "⚡ ZEPHYR X MD BOT",
+    botName: "𝘡𝘌𝘗𝘏𝘠𝘙-𝘔𝘋",
     version: "3.0.0",
-
-    ownerName: "👑 MRDIEHARD TECH",
+    ownerName: "MRDIEHARD TECH",
     ownerNumber: process.env.OWNER_NUMBER || "27621834910",
-
-    // Bot Status
     prefix: ".",
     mode: "private",
-    timezone: "Asia/Karachi",
-
-    // API KEYS
+    timezone: "Africa/Johannesburg",
+    footer: "\n\n╭───────────────╮\n   ⚡ 𝘡𝘌𝘗𝘏𝘠𝘙-𝘔𝘋 ⚡\n╰───────────────╯",
     giphyApiKey: process.env.GIPHY_API_KEY || "dc6zaTOxFJmzC",
-
-    // Channel
     channel: {
-        name: "AWAIS CYBER GANG",
-        url: "https://whatsapp.com/channel/0029VbBzlMlIt5rzSeMBE922"
+        name: "⚡ZᴇPʜʏʀ~Mᴅ⚡",
+        url: "https://whatsapp.com/channel/0029Vb8p6DV8aKvNTp6n8n45"
     },
-
-    // Features Default
     features: {
-
         autoReact: true,
         autoRead: false,
         autoTyping: true,
         autoRecording: true,
-
         antiCall: true,
         antiDelete: true,
         antiLink: true,
-
         autoStatus: false,
         aiReply: false
     },
-
-
-    // Messages
     messages: {
-
-        online:
-        `
-╭━━━〔 ⚡ ZEPHYR MD BOT 〕━━━╮
-
-✅ System Online
-🚀 Multi Device Active
-🛡️ Security Enabled
-
-Powered By zephyr Gang
-╰━━━━━━━━━━━━━━━━╯
-        `,
-
-
-        pair:
-        `
-🔐 Pairing System Started
-
-⚡ Secure Connection
-🤖 ZEPHYR MD Bot
-        `,
-
-
-        error:
-        "❌ System Error Occurred"
+        online: "𝘡𝘌𝘗𝘏𝘠𝘙-𝘔𝘋 is online.\nMulti device active.\nSecurity enabled.",
+        pair: "𝘡𝘌𝘗𝘏𝘠𝘙-𝘔𝘋 pairing started.\nSecure connection ready.",
+        error: "System error occurred."
     },
-
-
-    // Security
     security: {
-
         sessionBackup: true,
         maxMessagesCache: 3000,
         reconnect: true,
         antiCrash: true
     },
-
-
-    // Owner Commands
     ownerCommands: [
         "public",
         "private",
@@ -89,5 +41,4 @@ Powered By zephyr Gang
         "restart",
         "eval"
     ]
-
 };

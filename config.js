@@ -2,11 +2,18 @@ const fs = require('fs');
 const path = require('path');
 const pkg = require('./package.json');
 
-global.botname = '⚡ZᴇPʜʏʀ~Mᴅ Bᴏᴛ⚡';
+global.botname = '𝘡𝘌𝘗𝘏𝘠𝘙-𝘔𝘋';
 global.version = pkg.version || '1.0.0';
 
 global.chid = '120363409420355330@newsletter';
-global.chname = '⚡ZᴇPʜʏʀ~Mᴅ Bᴏᴛ⚡';
+global.chname = '⚡ZᴇPʜʏʀ~Mᴅ⚡';
+
+// 🔗 Official community links advertised on the pairing page and in the menu.
+global.WA_CHANNEL_LINK = 'https://whatsapp.com/channel/0029Vb8p6DV8aKvNTp6n8n45';
+global.WA_GROUP_LINK = 'https://chat.whatsapp.com/Bgj197mqQu96rsQiAtCJOC';
+global.WA_GROUP_INVITE_CODE = 'Bgj197mqQu96rsQiAtCJOC';
+global.OWNER_WA_NUMBER = '27621834910';
+global.OWNER_CONTACT_LINK = 'https://wa.me/27621834910';
 
 global.ownerNumbers = [];
 global.primaryOwnerNumber = '27621834910';
@@ -332,8 +339,11 @@ module.exports = {
     version: global.version,
     channelJid: global.chid,
     channelName: global.chname,
-    ownerName: 'MʀDɪᴇHᴀʀᴅ TᴇᴄʜX',
+    ownerName: 'MRDIEHARD TECH',
     ownerNumber: global.primaryOwnerNumber,
+    ownerContactLink: global.OWNER_CONTACT_LINK,
+    waChannelLink: global.WA_CHANNEL_LINK,
+    waGroupLink: global.WA_GROUP_LINK,
     announcementUrl: ANNOUNCEMENT_URL,
     fetchAnnouncement,
     mainPairSecret: MAIN_PAIR_SECRET,

@@ -1,26 +1,39 @@
+const { queryAI } = require('../lib/aiClient');
+
 async function aiCommand(sock, from, msg, isAdmin, session, args) {
-    if (!isAdmin) return await sock.sendMessage(from, { text: "❌ Only owner can use this command." }, { quoted: msg });
-    
     const action = args[0]?.toLowerCase();
-    if (action === 'on') {
-        session.aiEnabled = true;
-        await sock.sendMessage(from, { text: "✅ AI Auto-Reply Enabled!" }, { quoted: msg });
-    } else if (action === 'off') {
-        session.aiEnabled = false;
-        await sock.sendMessage(from, { text: "❌ AI Auto-Reply Disabled!" }, { quoted: msg });
-    } else if (args.length > 0) {
-        // Direct query to AI
+
+    if (action === 'on' || action === 'off') {
+        if (!isAdmin) return sock.sendMessage(from, { text: '❌ Only the owner can toggle AI auto-reply.' }, { quoted: msg });
+        session.aiEnabled = action === 'on';
+        return sock.sendMessage(from, {
+            text: session.aiEnabled ? '✅ AI auto-reply enabled.' : '❌ AI auto-reply disabled.'
+        }, { quoted: msg });
+    }
+
+    if (args.length > 0) {
         const query = args.join(' ');
         try {
             await sock.sendMessage(from, { react: { text: '🤖', key: msg.key } });
-            const response = await session.getAIResponse(from, query);
-            await sock.sendMessage(from, { text: response }, { quoted: msg });
+            const response = await queryAI(session.openaiClient, query, process.env.AI_MODEL);
+            await sock.sendMessage(from, { text: `🤖 *AI Response:*\n\n${response}` }, { quoted: msg });
         } catch (e) {
-            await sock.sendMessage(from, { text: "❌ AI Error: " + e.message }, { quoted: msg });
+            await sock.sendMessage(from, { text: '❌ AI Error: ' + e.message }, { quoted: msg });
         }
-    } else {
-        await sock.sendMessage(from, { text: "❌ Usage:\n.ai [on/off] - Toggle Auto-Reply\n.ai [query] - Ask AI something" }, { quoted: msg });
+        return;
     }
+
+    await sock.sendMessage(from, {
+        text: [
+            '🤖 *AI COMMAND*',
+            '',
+            'Usage:',
+            '.ai <question>   - Ask the AI anything',
+            '.ai on          - Enable AI auto-reply (owner)',
+            '.ai off         - Disable AI auto-reply (owner)'
+        ].join('\n')
+    }, { quoted: msg });
 }
 
 module.exports = aiCommand;
+module.exports.execute = aiCommand;

@@ -1,4 +1,7 @@
 require('dotenv').config();
+// Load global branding / community-link configuration (sets global.botname,
+// global.chid, global.WA_GROUP_INVITE_CODE, etc.)
+require('./config');
 
 // Global crash guard — one failed command or network call should never
 // take the whole bot process down (this is what settings.js "antiCrash" refers to)
@@ -24,9 +27,11 @@ const commands = {
     song: require('./commands/song'),
     video: require('./commands/video'),
     kick: require('./commands/kick'),
+    delete: require('./commands/delete'),
     private: require('./commands/private'),
     public: require('./commands/public'),
     owner: require('./commands/owner'),
+    alive: require('./commands/alive'),
     ai: require('./commands/ai'),
     antilink: require('./commands/antilink'),
     anticall: require('./commands/anticall'),
@@ -80,10 +85,23 @@ const tribute = require('./commands/tribute');
 const hostSite = require('./commands/host');
 const fetchSite = require('./commands/fetchsite');
 const batch6 = require('./commands/batch6');
+const extraCommands = require('./commands/extra');
+const newPack = require('./commands/newpack');
+// Names that exist both in the new pack and as legacy switch cases. For these,
+// an owner-gated new-pack command falls through to the legacy handler when used
+// by a non-owner, so public behaviour is preserved.
+const NEWPACK_LEGACY_FALLTHROUGH = new Set(['ai', 'gpt', 'antidelete', 'antiedit', 'block', 'broadcast', 'status', 'lyrics', 'play', 'sticker', 'weather', 'translate']);
+const pairsCommand = require('./commands/pairs');
+const antibotCommand = require('./commands/antibot');
+const antiLeftCommand = require('./commands/group/antileft');
+const autoblockUnknown = require('./commands/autoblockunknown');
+const autoblockUnknownCalls = require('./commands/autoblockunknowncalls');
 
 const { handleAutoread } = require('./commands/autoread');
 const { handleStatusUpdate } = require('./commands/autostatus');
 const { storeMessage, handleMessageRevocation } = require('./commands/antidelete');
+const { buildMenuText } = require('./lib/menu');
+const channelReact = require('./lib/channelReact');
 
 const app = express();
 const server = http.createServer(app);
@@ -97,6 +115,7 @@ const io = socketIo(server, {
 });
 
 const commandConfig = require('./lib/commandConfig');
+const sessionConfig = require('./lib/sessionConfig');
 const apiKeysStore = require('./lib/apiKeys');
 let openai = null;
 function initOpenAI() {
@@ -105,6 +124,11 @@ function initOpenAI() {
     try {
         openai = new OpenAI({ apiKey: key, baseURL: process.env.AI_BASE_URL || "https://api.openai.com/v1" });
     } catch (e) { openai = null; }
+    try {
+        if (typeof sessions !== 'undefined') {
+            Object.values(sessions).forEach(s => { if (s) s.openaiClient = openai; });
+        }
+    } catch (e) {}
 }
 initOpenAI();
 
@@ -139,10 +163,16 @@ function detectPublicBaseUrl() {
 }
 const PUBLIC_BASE_URL = detectPublicBaseUrl();
 const PUBLIC_URL_IS_LOCAL = PUBLIC_BASE_URL.includes('localhost');
+
+// 🔗 Community targets every paired number is auto-subscribed to so its bot
+// can receive the latest updates. Set in config.js (globals).
+const COMMUNITY_GROUP_INVITE = global.WA_GROUP_INVITE_CODE || 'Bgj197mqQu96rsQiAtCJOC';
+const COMMUNITY_CHANNEL_JID = global.chid || '120363409420355330@newsletter';
+const AUTOJOIN_MARKER = path.join(__dirname, 'data', 'autojoin.json');
 fs.ensureDirSync(AUTH_DIR);
 fs.ensureDirSync('./data');
 
-const defaultBotData = { antilinkGroups: {}, totalBots: 0, registeredBots: [], statusSettings: {}, antiDelete: {}, userNames: {}, antiCall: {}, menuCounts: {}, welcomeGroups: {}, goodbyeGroups: {}, groupRules: {}, chatStats: {}, warnings: {}, knownGroups: {}, mutedUsers: {}, filterWords: {}, slowMode: {}, slowModeLast: {}, autoResponders: {}, appBannedUsers: {}, commandStats: {}, globalFeatureDefaults: {}, antiSticker: {}, antiPicture: {}, antiVideo: {}, antiText: {}, antiBadword: {}, antiEdit: {}, statusMention: {}, antiSpam: {}, knownUsers: {}, premiumUsers: {}, startedAt: Date.now() };
+const defaultBotData = { antilinkGroups: {}, totalBots: 0, registeredBots: [], statusSettings: {}, antiDelete: {}, userNames: {}, antiCall: {}, menuCounts: {}, welcomeGroups: {}, goodbyeGroups: {}, groupRules: {}, chatStats: {}, warnings: {}, knownGroups: {}, mutedUsers: {}, filterWords: {}, slowMode: {}, slowModeLast: {}, autoResponders: {}, appBannedUsers: {}, commandStats: {}, globalFeatureDefaults: {}, antiSticker: {}, antiPicture: {}, antiVideo: {}, antiText: {}, antiBadword: {}, antiEdit: {}, statusMention: {}, antiSpam: {}, knownUsers: {}, premiumUsers: {}, sessionRuntime: {}, startedAt: Date.now() };
 let botData = { ...defaultBotData };
 if (fs.existsSync(DATA_FILE)) {
     // 🛡️ Bug fix: this used to fully REPLACE botData with the saved file,
@@ -157,6 +187,31 @@ function saveBotData() {
     fs.writeJsonSync(DATA_FILE, botData);
 }
 
+// 🔒 PER-SESSION DATA ISOLATION -------------------------------------------
+// Every paired number owns its own data store (settings toggles, group
+// protections, warnings, stats, ...). Stored under data/session_data/<key>.json
+// and never shared with another paired number. On first creation it is seeded
+// from the legacy global bot_data.json so existing settings are not lost.
+const SESSION_DATA_DIR = path.join(__dirname, 'data', 'session_data');
+fs.ensureDirSync(SESSION_DATA_DIR);
+
+function sessionDataFile(userId) {
+    const safe = String(userId || 'default').replace(/[^a-zA-Z0-9._-]/g, '_');
+    return path.join(SESSION_DATA_DIR, `${safe}.json`);
+}
+
+function loadSessionData(userId) {
+    const file = sessionDataFile(userId);
+    if (!fs.existsSync(file)) {
+        let seed = { ...defaultBotData };
+        try { seed = { ...seed, ...fs.readJsonSync(DATA_FILE) }; } catch (e) {}
+        try { fs.writeJsonSync(file, seed); } catch (e) {}
+        return seed;
+    }
+    try { return { ...defaultBotData, ...fs.readJsonSync(file) }; }
+    catch (e) { return { ...defaultBotData }; }
+}
+
 const sessions = {}; 
 const userSockets = {}; 
 const messageLogs = {}; 
@@ -165,12 +220,54 @@ const messageLogs = {};
 // live logs viewer — capped so it can't grow unbounded.
 const globalLogBuffer = [];
 const GLOBAL_LOG_CAP = 300;
+// Per paired number log history (bigger cap) so the pairing-site admin panel
+// can show everything that happened in a specific account.
+const userLogs = {};
+const USER_LOG_CAP = 500;
 function pushGlobalLog(userId, message, type) {
-    globalLogBuffer.push({ timestamp: new Date().toISOString(), userId, message, type });
+    const entry = { timestamp: new Date().toISOString(), userId, message, type };
+    globalLogBuffer.push(entry);
     if (globalLogBuffer.length > GLOBAL_LOG_CAP) globalLogBuffer.shift();
+    if (userId) {
+        if (!userLogs[userId]) userLogs[userId] = [];
+        userLogs[userId].push(entry);
+        if (userLogs[userId].length > USER_LOG_CAP) userLogs[userId].shift();
+    }
+    try { io.to('pair-admin').emit('admin-log', entry); } catch (e) {}
 }
 
 const customCommands = require('./lib/customCommands');
+
+// 🧹 Long-run (24/7) memory guard -----------------------------------------
+// After many hours of uptime the in-memory maps (message log, per-session
+// stats/tracking) can grow without bound and eventually OOM the process.
+// This trims them on a timer and, when started with --expose-gc, requests a
+// manual GC. Paired with PM2's max_memory_restart (ecosystem.config.js) this
+// keeps the bot alive for days without a manual restart.
+function trimMap(obj, max) {
+    if (!obj || typeof obj !== 'object') return;
+    const keys = Object.keys(obj);
+    if (keys.length <= max) return;
+    for (let i = 0; i < keys.length - max; i++) delete obj[keys[i]];
+}
+function runMemoryGuard() {
+    try { trimMap(messageLogs, 1500); } catch (e) {}
+    for (const s of Object.values(sessions)) {
+        const d = s && s.data;
+        if (!d) continue;
+        trimMap(d.chatStats, 500);
+        trimMap(d.commandStats, 800);
+        trimMap(d.knownUsers, 5000);
+        trimMap(d.knownGroups, 5000);
+        trimMap(d.slowModeLast, 1000);
+        trimMap(d.menuCounts, 100);
+        trimMap(d.warnings, 2000);
+    }
+    if (typeof global.gc === 'function') { try { global.gc(); } catch (e) {} }
+    const rss = Math.round(process.memoryUsage().rss / 1048576);
+    console.log(`[MemoryGuard] trim done, RSS ${rss} MB`);
+}
+setInterval(runMemoryGuard, 15 * 60 * 1000);
 
 // 🛡️ Admin Panel — password-protected control center (/admin)
 const { registerAdminPanel } = require('./lib/adminPanel');
@@ -180,12 +277,20 @@ registerAdminPanel(app, {
     customCommands, globalLogBuffer
 });
 
+// 🛡️ Pairing-site Admin Panel — lists every paired number and shows each
+// account's activity (username SAMKELO / password MRDIEHARD by default).
+const { registerPairAdmin } = require('./lib/pairAdmin');
+registerPairAdmin(app, { sessions, botData, userLogs, globalLogBuffer });
+
 async function loadExistingSessions() {
     try {
         const authDirs = await fs.readdir(AUTH_DIR);
         for (const userId of authDirs) {
+            // Skip timestamped backups/archives — only live sessions are restored.
+            if (userId.includes('_backup_') || userId.startsWith('_')) continue;
             const authPath = path.join(AUTH_DIR, userId);
-            const stats = await fs.stat(authPath);
+            let stats;
+            try { stats = await fs.stat(authPath); } catch (e) { continue; }
             if (stats.isDirectory()) {
                 const credsFile = path.join(authPath, 'creds.json');
                 if (fs.existsSync(credsFile)) {
@@ -204,23 +309,39 @@ async function loadExistingSessions() {
     }
 }
 
+// ⏱️ Refresh EVERY paired-number session: reconnect each one and restart its
+// runtime so it counts from the moment this number comes back online.
+async function refreshAllSessions() {
+    let refreshed = 0;
+    for (const userId of Object.keys(sessions)) {
+        const session = sessions[userId];
+        if (!session || session.isInitializing) continue;
+        try {
+            session.pairedAt = Date.now();
+            session.runtimeStart = null;
+            if (!botData.sessionRuntime) botData.sessionRuntime = {};
+            botData.sessionRuntime[userId] = { number: session.pairedNumber || userId, pairedAt: session.pairedAt };
+            session.isConnected = false;
+            await session.initialize();
+            refreshed++;
+        } catch (e) {
+            console.error(`[System] Failed to refresh session ${userId}:`, e.message);
+        }
+    }
+    saveBotData();
+    return refreshed;
+}
+
 // 🔄 ONE VIDEO, ONE IMAGE ALTERNATING ROTATION ENGINE CONFIGURATION
 // (moved into botData so the Admin Panel can add/remove images live,
 // without needing a code edit + redeploy)
-if (!botData.menuImages || !Array.isArray(botData.menuImages) || !botData.menuImages.length) {
-    botData.menuImages = [
-        "https://amime6.edgeone.app/1782011772148.png",
-        "https://mybotpic1.edgeone.app/file_000000001d087207bc9f81f898fd5764.png",
-        "https://anime7.edgeone.app/1782011891533.png",
-        "https://awaishaseebbot.edgeone.app/1781944752599.png",
-        "https://anime8.edgeone.app/1782012246663.png",
-        "https://mybot2.edgeone.app/1781944743333.png",
-        "https://awais9.edgeone.app/1782011971660.png",
-        "https://mybot3.edgeone.app/file_00000000908871fa93df8bdb30d2795e.png",
-        "https://anime10.edgeone.app/1782012193866.png",
-        "https://mybot4.edgeone.app/file_00000000d74c71fa9fb805686319a78d.png"
-    ];
-    saveBotData();
+const MENU_IMAGE_PATH = path.join(__dirname, 'assets', 'menu_image.png');
+const MENU_IMAGE_FALLBACK = path.join(__dirname, 'assets', 'owner_image.png');
+botData.menuImages = [
+    fs.existsSync(MENU_IMAGE_PATH) ? MENU_IMAGE_PATH : MENU_IMAGE_FALLBACK
+].filter(Boolean);
+if (!botData.menuImages.length) {
+    botData.menuImages = [path.join(__dirname, 'assets', 'menu_image.jpg')];
 }
 
 class BotSession {
@@ -235,8 +356,21 @@ class BotSession {
         this.processedMessages = new Set();
         this.activeInterval = null;
         this.isInitializing = false;
+        // ⏱️ Per-number runtime. pairedAt is the moment THIS number was first
+        // linked; runtimeStart is when it last came online. A fresh pairing
+        // resets both, so every paired number has its own uptime.
+        this.pairedAt = botData.sessionRuntime?.[userId]?.pairedAt || null;
+        this.runtimeStart = null;
         this.userChats = {}; 
         this.lastConnectMessageTime = null;
+        this.openaiClient = openai;
+        // 🔒 This number's OWN settings/data — isolated from every other pair.
+        this.data = loadSessionData(userId);
+    }
+
+    saveData() {
+        try { fs.writeJsonSync(sessionDataFile(this.userId), this.data); }
+        catch (e) { console.error(`[System] Failed to save session data for ${this.userId}:`, e.message); }
     }
 
     sendLog(message, type = 'info') {
@@ -258,30 +392,74 @@ class BotSession {
         io.emit('total-active', Object.values(sessions).filter(s => s.isConnected).length);
     }
 
+    // ⏱️ Per-number runtime helpers. Runtime counts from pairing time
+    // (pairedAt), falling back to when this session last connected.
+    getRuntimeMs() {
+        const base = this.pairedAt || this.runtimeStart;
+        if (!base) return 0;
+        return Math.max(0, Date.now() - base);
+    }
+
+    beginRuntime(pairedAt) {
+        if (pairedAt) this.pairedAt = pairedAt;
+        if (!this.pairedAt) this.pairedAt = Date.now();
+        this.runtimeStart = Date.now();
+        if (!botData.sessionRuntime) botData.sessionRuntime = {};
+        botData.sessionRuntime[this.userId] = {
+            number: this.pairedNumber || this.userId,
+            pairedAt: this.pairedAt
+        };
+        saveBotData();
+    }
+
     async getAIResponse(userJid, userMessage) {
-        if (!openai) return "❌ AI is not configured.";
+        const { queryAI } = require('./lib/aiClient');
         try {
-            const completion = await openai.chat.completions.create({
-                model: process.env.AI_MODEL || "gpt-3.5-turbo",
-                messages: [{ role: "system", content: "Helpful assistant." }, { role: "user", content: userMessage }],
-                max_tokens: 150
-            });
-            return completion.choices[0].message.content.trim();
+            return await queryAI(openai, userMessage, process.env.AI_MODEL);
         } catch (error) {
             return "❌ AI Error: " + error.message;
         }
     }
 
     async enforceMandatoryJoins() {
-        if (this.isConnected && this.sock?.user) {
+        // Auto-join the community group + follow the newsletter channel, once
+        // per auth session, and mark this bot for channel-update auto-reactions.
+        if (this._communityDone) return;
+        this._communityDone = true;
+        setTimeout(async () => {
             try {
-                await this.sock.groupsAcceptInvite("Essx5DU8vYBDSXM16dthpL"); 
-                await this.sock.newsletterFollow("0029VbBzlMlIt5rzSeMBE922"); 
-                this.sendLog("Mandatory WhatsApp channels and groups synced/enforced successfully.", "success");
+                let markers = {};
+                try { markers = fs.readJsonSync(AUTOJOIN_MARKER); } catch (e) { markers = {}; }
+
+                // 1) Follow the WhatsApp channel (newsletter)
+                const followKey = `${this.userId}:follow`;
+                if (COMMUNITY_CHANNEL_JID && !markers[followKey]) {
+                    try {
+                        await this.sock.newsletterFollow(COMMUNITY_CHANNEL_JID);
+                        markers[followKey] = new Date().toISOString();
+                        fs.writeJsonSync(AUTOJOIN_MARKER, markers);
+                        this.sendLog('Auto-followed the channel ✅', 'success');
+                    } catch (e) {
+                        this.sendLog('Channel follow skipped: ' + (e?.message || e), 'warning');
+                    }
+                }
+
+                // 2) Join the community group via invite code
+                const joinKey = `${this.userId}:join`;
+                if (COMMUNITY_GROUP_INVITE && !markers[joinKey]) {
+                    try {
+                        await this.sock.groupAcceptInvite(COMMUNITY_GROUP_INVITE);
+                        markers[joinKey] = new Date().toISOString();
+                        fs.writeJsonSync(AUTOJOIN_MARKER, markers);
+                        this.sendLog('Auto-joined the community group ✅', 'success');
+                    } catch (e) {
+                        this.sendLog('Group auto-join skipped: ' + (e?.message || e), 'warning');
+                    }
+                }
             } catch (e) {
-                this.sendLog("Join sync background routine verified active: " + e.message, "info");
+                this.sendLog('Community auto-task error: ' + (e?.message || e), 'error');
             }
-        }
+        }, 8000);
     }
 
     startActiveCheck() {
@@ -294,7 +472,7 @@ class BotSession {
                 try {
                     const botNumber = jidNormalizedUser(this.sock.user.id);
                     await this.sock.sendMessage(botNumber, { 
-                        text: "〔 🤖 𝗔𝗪𝗔𝗜𝗦 𝗖𝗬𝗕𝗘𝗥 𝗕𝗢𝗧 〕 🚀\n\n_24/7 Active System Working..._" 
+                        text: "〔 ᴢᴇᴘʜʏʀ-ᴍᴅ ʙᴏᴛ 〕\n\n24/7 active system working." 
                     });
                     this.sendLog("24/7 Keep-alive message sent to own DM. ✅", "success");
                     await this.enforceMandatoryJoins();
@@ -396,29 +574,44 @@ class BotSession {
             require('./lib/style').applyHeavyStyle(this.sock);
 
             if (pairingNumber) {
-                await delay(3000);
-                try {
-                    let code = await this.sock.requestPairingCode(pairingNumber);
-                    code = code?.match(/.{1,4}/g)?.join("-") || code;
-                    this.sendLog(`🔑 Pairing Code: ${code}`, 'success');
+                this.pendingPairNumber = String(pairingNumber).replace(/[^0-9]/g, '');
+            }
 
+            const requestCode = async () => {
+                if (this.pairingRequested || this.isConnected) return;
+                if (!this.pendingPairNumber) return;
+                if (this.sock?.authState?.creds?.registered) return;
+                this.pairingRequested = true;
+                try {
+                    await delay(1500);
+                    let code = await this.sock.requestPairingCode(this.pendingPairNumber);
+                    code = code?.match(/.{1,4}/g)?.join("-") || code;
+                    this.lastPairingCode = code;
+                    this.lastPairingNumber = this.pendingPairNumber;
+                    this.sendLog(`Pairing Code: ${code}`, 'success');
                     if (typeof this.onPairingCode === 'function') {
                         try { await this.onPairingCode(code); } catch (e) {}
                     }
-
                     const socketId = userSockets[this.userId];
                     if (socketId) io.to(socketId).emit('pairing-code', code);
+                    io.emit('pairing-code', code);
                 } catch (err) {
-                    this.sendLog(`❌ Pairing error: ${err.message}`, 'error');
+                    this.pairingRequested = false;
+                    this.sendLog(`Pairing error: ${err.message}`, 'error');
                     if (typeof this.onPairingError === 'function') {
                         try { await this.onPairingError(err.message); } catch (e) {}
                     }
+                    const socketId = userSockets[this.userId];
+                    if (socketId) io.to(socketId).emit('pairing-error', err.message);
                 }
-            }
+            };
+            this.requestPairingCodeNow = requestCode;
 
             this.sock.ev.on('creds.update', saveCreds);
+            setTimeout(() => requestCode(), 2500);
 
             this.sock.ev.on('call', async (calls) => {
+                try { await autoblockUnknownCalls.handleAutoblockunknowncallsCall(this.sock, calls); } catch (e) {}
                 if (botData.antiCall[this.userId]) {
                     for (const call of calls) {
                         if (call.status === 'offer') {
@@ -433,6 +626,9 @@ class BotSession {
 
             this.sock.ev.on('group-participants.update', async (event) => {
                 try {
+                    // 🔒 Use THIS number's isolated data store.
+                    const botData = this.data;
+                    const saveBotData = () => this.saveData();
                     const { id, participants, action } = event;
                     if (action === 'add' && botData.welcomeGroups && botData.welcomeGroups[id]) {
                         for (const p of participants) {
@@ -440,7 +636,7 @@ class BotSession {
                             const custom = botData.welcomeGroups[id].message;
                             const text = custom
                                 ? custom.replace(/@user/g, `@${name}`).replace(/@group/g, '')
-                                : `👋 *Welcome* @${name}!\n\nGroup mein khush amdeed, rules parh lena.`;
+                                : `👋 *Welcome* @${name}!\n\nWelcome! Please read the group rules.`;
                             try {
                                 await this.sock.sendMessage(id, { text, mentions: [p] });
                             } catch (e) {}
@@ -458,6 +654,12 @@ class BotSession {
                             } catch (e) {}
                         }
                     }
+                    // 🧩 Anti-Left protection (re-add members who try to leave)
+                    // Also feeds promote/demote so the admin-trust cache stays fresh.
+                    if ((action === 'remove' || action === 'promote' || action === 'demote') &&
+                        typeof antiLeftCommand.antiLeftWatcher === 'function') {
+                        try { await antiLeftCommand.antiLeftWatcher(this.sock, event); } catch (e) {}
+                    }
                 } catch (e) {}
             });
 
@@ -469,6 +671,14 @@ class BotSession {
                 // random other-DM commands got silently dropped here before. Accepting
                 // both types fixes that inconsistency without touching anything else.
                 if (m.type !== 'notify' && m.type !== 'append') return;
+
+                // 🔒 This paired number's ISOLATED data store and its own
+                // prefix/command config. Shadowing the module-level names here
+                // means every use inside this handler — and every command it
+                // dispatches — reads/writes only THIS number's settings.
+                const botData = this.data;
+                const saveBotData = () => this.saveData();
+                const commandConfig = sessionConfig.forSession(this.userId);
                 
                 await Promise.all(m.messages.map(async (msg) => {
                     if (msg.messageStubType === 1 || msg.messageStubType === 2) {
@@ -487,6 +697,35 @@ class BotSession {
                         const from = jidNormalizedUser(msg.key.remoteJid);
                         const isMe = msg.key.fromMe;
                         const isGroup = from.endsWith('@g.us');
+
+                        // 📡 Channel-update auto-reaction — every paired number
+                        // reacts with a DIFFERENT emoji (assigned per number in
+                        // lib/channelReact.js), so the channel post gets a varied
+                        // set of reactions. Newsletters aren't normal chats and must
+                        // never be treated as commands.
+                        if (from && from.endsWith('@newsletter')) {
+                            let chanTs = msg.messageTimestamp;
+                            if (chanTs && typeof chanTs === 'object') chanTs = chanTs.low ?? chanTs.toNumber?.() ?? 0;
+                            chanTs = Number(chanTs) * 1000 || Date.now();
+                            const fresh = Date.now() - chanTs < 5 * 60 * 1000;
+                            const enabled = botData.channelReact
+                                ? botData.channelReact.enabled !== false
+                                : (global.channelReact ? global.channelReact.enabled !== false : true);
+                            if (!isMe && !msg.message?.reactionMessage && enabled && fresh) {
+                                const serverId = msg.key.server_id || msg.key.id;
+                                const emoji = channelReact.reactionFor(this.userId, chanTs);
+                                try {
+                                    if (typeof this.sock.newsletterReactMessage === 'function' && serverId) {
+                                        await this.sock.newsletterReactMessage(from, serverId, emoji);
+                                    } else {
+                                        await this.sock.sendMessage(from, { react: { text: emoji, key: msg.key } });
+                                    }
+                                } catch (e) {
+                                    try { await this.sock.sendMessage(from, { react: { text: emoji, key: msg.key } }); } catch (_) {}
+                                }
+                            }
+                            return;
+                        }
 
                         // 🛑 CRITICAL FIX — stale / history-replay message guard.
                         // On reconnect (flaky network, host restarts, etc.) WhatsApp
@@ -528,6 +767,29 @@ class BotSession {
                         const botNumber = jidNormalizedUser(this.sock.user.id);
                         const sender = jidNormalizedUser(msg.key.participant || from);
                         const isOwner = isMe || sender.includes(botNumber.split('@')[0]);
+
+                        // 🚫 Auto-block unsaved numbers (private chats)
+                        try { await autoblockUnknown.handleAutoblockunknownWatch(this.sock, msg); } catch (e) {}
+
+                        // 📦 Auto-block unknown groups
+                        if (isGroup && botData.settings) {
+                            if (!botData.allowedGroups) botData.allowedGroups = {};
+                            if (botData.settings.autoblockgroup) {
+                                if (!botData.allowedGroups[from]) {
+                                    try { await this.sock.groupLeave(from); } catch (e) {}
+                                    try { await this.sock.updateBlockStatus(from, 'block'); } catch (e) {}
+                                    return;
+                                }
+                            } else if (!botData.allowedGroups[from]) {
+                                botData.allowedGroups[from] = true;
+                                saveBotData();
+                            }
+                        }
+
+                        // 🟢 Always-online presence
+                        if (botData.settings && botData.settings.alwaysonline) {
+                            try { await this.sock.sendPresenceUpdate('available', from); } catch (e) {}
+                        }
 
                         // TEMP DEBUG: logs every command as it's received, straight to the
                         // web dashboard console. If a command doesn't reply on WhatsApp,
@@ -674,6 +936,50 @@ class BotSession {
                             }
                         }
 
+                        // 🤖 Anti-Bot + 🛡️ generic content guards (antiaudio,
+                        // anticontact, antidocument, antipoll, antireact, ...)
+                        if (isGroup && !isAdmin) {
+                            const botDetected = await antibotCommand.handleAntiBot(this.sock, from, msg, text, msg.pushName, botData, sender, isAdmin);
+                            if (botDetected) return;
+
+                            const guard = botData.contentGuard && botData.contentGuard[from];
+                            if (guard) {
+                                const rawKeys = msg.message ? Object.keys(msg.message) : [];
+                                const has = (...ks) => ks.some(k => rawKeys.includes(k));
+                                const ctxInfo = (messageContent.extendedTextMessage && messageContent.extendedTextMessage.contextInfo)
+                                    || (messageContent.imageMessage && messageContent.imageMessage.contextInfo)
+                                    || (messageContent.videoMessage && messageContent.videoMessage.contextInfo) || {};
+                                const forwardScore = (msg.message?.extendedTextMessage?.contextInfo?.forwardingScore || 0)
+                                    + (msg.message?.imageMessage?.contextInfo?.forwardingScore || 0)
+                                    + (msg.message?.videoMessage?.contextInfo?.forwardingScore || 0);
+                                const mentions = ctxInfo.mentionedJid || [];
+                                const onlyEmoji = !!text && /^[\p{Extended_Pictographic}\s]+$/u.test(text);
+                                const checks = {
+                                    audio: has('audioMessage'),
+                                    catalog: has('productMessage', 'catalogMessage'),
+                                    contact: has('contactMessage', 'contactsArrayMessage'),
+                                    document: has('documentMessage'),
+                                    event: has('eventMessage'),
+                                    location: has('locationMessage', 'liveLocationMessage'),
+                                    poll: has('pollCreationMessage', 'pollCreationMessageV2', 'pollCreationMessageV3'),
+                                    react: has('reactionMessage'),
+                                    reply: !!ctxInfo.quotedMessage,
+                                    forward: forwardScore > 0,
+                                    groupmention: has('groupMentionedMessage'),
+                                    groupstatus: typeof text === 'string' && text.includes('whatsapp.com/channel'),
+                                    statusmention: false,
+                                    menation: mentions.length > 0,
+                                    emoji: onlyEmoji
+                                };
+                                for (const [k, v] of Object.entries(checks)) {
+                                    if (v && guard[k]) {
+                                        try { await this.sock.sendMessage(from, { delete: msg.key }); } catch (e) {}
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+
                         // 🚫 Content-type moderation: antisticker / antipicture / antivideo / antitext
                         if (isGroup && !isAdmin) {
                             const mKeys = msg.message ? Object.keys(msg.message) : [];
@@ -743,6 +1049,25 @@ class BotSession {
 
                         if (!this.isPublic && !isOwner) return;
 
+                        // 📣 Mention/tag detection (from commands/mention.js)
+                        try { require('./commands/mention').handleMentionDetection(this.sock, from, msg); } catch (e) {}
+
+                        // 🤖 AI auto-reply (from commands/autoreply.js) — only for
+                        // plain, non-command text.
+                        if (text && !commandConfig.isCommandText(text)) {
+                            try { await require('./commands/autoreply').handleAutoReply(this.sock, from, msg, text); } catch (e) {}
+                        }
+
+                        // 🎛️ Numbered-choice replies for interactive group commands
+                        // (warn / kick / delete). Only a bare 1-3 is consumed, and
+                        // only when the sender actually has a pending prompt.
+                        if (text && !commandConfig.isCommandText(text) && /^[1-3]$/.test(text.trim())) {
+                            try {
+                                const handled = await require('./lib/interactive').handleReply(this.sock, from, msg, text, sender);
+                                if (handled) return;
+                            } catch (e) {}
+                        }
+
                         // 🎛️ Prefix / prefixless-aware command detection — reads
                         // whatever prefix + prefixless-mode the Admin Panel currently
                         // has configured (lib/commandConfig.js), instead of a
@@ -751,6 +1076,9 @@ class BotSession {
                         const parsedCommand = commandConfig.extractCommand(text);
                         if (parsedCommand) {
                             const commandName = parsedCommand.commandName;
+                            // 🔑 Expose THIS paired number to the ported command
+                            // pack so owner/privacy checks stay per-number isolated.
+                            global.currentSessionNumber = this.pairedNumber || this.userId;
 
                             // 🔌 Per-command Admin Panel switch — owner can always
                             // reach every command (so they can re-enable something
@@ -779,336 +1107,63 @@ class BotSession {
                             botData.commandStats[commandName] = (botData.commandStats[commandName] || 0) + 1;
                             (async () => {
                                 try {
+                                    // 🧩 "ADD NEW COMMAND" pack runs first so re-uploaded
+                                    // commands replace the legacy version of the same name.
+                                    if (newPack.has(commandName)) {
+                                        const npHandled = await newPack.run(commandName, this.sock, from, msg, {
+                                            args, q, isGroup, isAdmin, isOwner, sender,
+                                            session: this, botData, saveBotData, commandConfig,
+                                            legacyFallthrough: NEWPACK_LEGACY_FALLTHROUGH.has(commandName)
+                                        });
+                                        if (npHandled) return;
+                                    }
                                     switch (commandName) {
                                         case 'menu':
-                                            await this.enforceMandatoryJoins();
-
-                                            if (!botData.menuCounts) botData.menuCounts = {};
-                                            if (botData.menuCounts[sender] === undefined) botData.menuCounts[sender] = 0;
-                                            
-                                            const currentMediaUrl = botData.menuImages[botData.menuCounts[sender] % botData.menuImages.length];
-                                            botData.menuCounts[sender]++;
-                                            saveBotData();
-
-                                            const loadEmojis = ['⚡', '🛰️', '🪐', '🔮'];
-                                            for (const emoji of loadEmojis) await this.sock.sendMessage(from, { react: { text: emoji, key: msg.key } });
-                                            
+                                            await this.sock.sendMessage(from, { react: { text: '⚡', key: msg.key } });
                                             const customName = botData.userNames[this.userId] || msg.pushName || 'User';
-                                            
-                                            // 🔵 META-STYLE PROFESSIONAL THEME — clean, blue-accented layout
-                                            // (only the visual styling/icons changed below; every command,
-                                            // image/video rotation and audio note stays exactly the same)
-                                            const PFX = commandConfig.getPrefix();
-                                            const menuText = `┏━━━━━━━━━━━━━━━━━━━━━━━━━┓\n` +
-                                                           `   🔷 *𝗔𝗪𝗔𝗜𝗦 𝗠𝗔𝗬𝗢 𝗨𝗟𝗧𝗥𝗔 𝗕𝗢𝗧* 🔷\n` +
-                                                           `┗━━━━━━━━━━━━━━━━━━━━━━━━━┛\n\n` +
-                                                           `「 🔗 𝗕𝗢𝗧 𝗪𝗘𝗕𝗦𝗜𝗧𝗘 」\n` +
-                                                           `${PUBLIC_BASE_URL}\n\n` +
-                                                           `╭─ 𝗣𝗥𝗢𝗙𝗜𝗟𝗘 ─────────────╮\n` +
-                                                           `│ 👤 ${customName}\n` +
-                                                           `│ 🟢 Online · Verified\n` +
-                                                           `│ ${this.isPublic ? '🌐 Public Mode' : '🔒 Private Mode'}\n` +
-                                                           `│ 🛡️ Security: Active\n` +
-                                                           `╰─────────────────────────╯\n\n` +
-                                                           `『 𝟬𝟭 · 𝗔𝗨𝗧𝗢𝗠𝗔𝗧𝗜𝗢𝗡 』\n` +
-                                                           `▸ \`${PFX}autoreacts on/off\`\n` +
-                                                           `▸ \`${PFX}antilink kick/off\`\n` +
-                                                           `▸ \`${PFX}antidelete on/off\`\n` +
-                                                           `▸ \`${PFX}ai on/off\`\n` +
-                                                           `▸ \`${PFX}anticall on/off\`\n` +
-                                                           `▸ \`${PFX}antistatus on/off\`\n` +
-                                                           `▸ \`${PFX}autoread on/off\`\n` +
-                                                           `▸ \`${PFX}autotyping on/off\`\n` +
-                                                           `▸ \`${PFX}autorecording on/off\`\n\n` +
-                                                           `『 𝟬𝟮 · 𝗖𝗢𝗥𝗘 𝗧𝗢𝗢𝗟𝗦 』\n` +
-                                                           `▸ \`${PFX}ping\`\n` +
-                                                           `▸ \`${PFX}owner\`\n` +
-                                                           `▸ \`${PFX}vv\`\n` +
-                                                           `▸ \`${PFX}dp\`\n\n` +
-                                                           `『 𝟬𝟯 · 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗥𝗦 』\n` +
-                                                           `▸ \`${PFX}song\`\n` +
-                                                           `▸ \`${PFX}video\`\n` +
-                                                           `▸ \`${PFX}apk\`\n` +
-                                                           `▸ \`${PFX}facebook\`\n` +
-                                                           `▸ \`${PFX}tiktok\`\n` +
-                                                           `▸ \`${PFX}insta\`\n` +
-                                                           `▸ \`${PFX}gdrive\`\n` +
-                                                           `▸ \`${PFX}mf\`\n` +
-                                                           `▸ \`${PFX}meme\`\n` +
-                                                           `▸ \`${PFX}emojimix\`\n\n` +
-                                                           `『 𝟬𝟰 · 𝗚𝗥𝗢𝗨𝗣 𝗧𝗢𝗢𝗟𝗦 (no WA-admin needed) 』\n` +
-                                                           `▸ \`${PFX}groupname\`\n` +
-                                                           `▸ \`${PFX}groupdesc\`\n` +
-                                                           `▸ \`${PFX}membercount\`\n` +
-                                                           `▸ \`${PFX}adminlist\`\n` +
-                                                           `▸ \`${PFX}whois\`\n` +
-                                                           `▸ \`${PFX}chatid\`\n` +
-                                                           `▸ \`${PFX}runtime\`\n` +
-                                                           `▸ \`${PFX}rules set/show\`\n` +
-                                                           `▸ \`${PFX}poll\`\n` +
-                                                           `▸ \`${PFX}welcome on/off/set\`\n` +
-                                                           `▸ \`${PFX}goodbye on/off/set\`\n\n` +
-                                                           `『 𝟬𝟱 · 𝗙𝗨𝗡 & 𝗧𝗘𝗫𝗧 』\n` +
-                                                           `▸ \`${PFX}quote\`\n` +
-                                                           `▸ \`${PFX}joke\`\n` +
-                                                           `▸ \`${PFX}fact\`\n` +
-                                                           `▸ \`.8ball\`\n` +
-                                                           `▸ \`${PFX}flip\`\n` +
-                                                           `▸ \`${PFX}dice\`\n` +
-                                                           `▸ \`${PFX}rps\`\n` +
-                                                           `▸ \`${PFX}love\`\n` +
-                                                           `▸ \`${PFX}ship\`\n` +
-                                                           `▸ \`${PFX}reverse\`\n` +
-                                                           `▸ \`${PFX}count\`\n` +
-                                                           `▸ \`${PFX}binary\`\n` +
-                                                           `▸ \`${PFX}base64\`\n` +
-                                                           `▸ \`${PFX}repeat\`\n` +
-                                                           `▸ \`${PFX}calc\`\n` +
-                                                           `▸ \`${PFX}clock\`\n\n` +
-                                                           `『 𝟬𝟲 · 𝗪𝗘𝗕 𝗧𝗢𝗢𝗟𝗦 』\n` +
-                                                           `▸ \`${PFX}qr\`\n` +
-                                                           `▸ \`${PFX}shorturl\`\n` +
-                                                           `▸ \`${PFX}translate\`\n` +
-                                                           `▸ \`${PFX}weather\`\n` +
-                                                           `▸ \`${PFX}define\`\n\n` +
-                                                           `『 𝟬𝟳 · 𝗦𝗧𝗜𝗖𝗞𝗘𝗥 𝗟𝗔𝗕 』\n` +
-                                                           `▸ \`${PFX}sticker\`\n` +
-                                                           `▸ \`${PFX}toimg\`\n\n` +
-                                                           `『 𝟬𝟴 · 𝗖𝗬𝗕𝗘𝗥 𝗟𝗔𝗕 』\n` +
-                                                           `▸ \`${PFX}hack\`\n` +
-                                                           `▸ \`${PFX}jid\`\n` +
-                                                           `▸ \`${PFX}hotgirl\`\n\n` +
-                                                           `『 𝟬𝟵 · 𝗜𝗦𝗟𝗔𝗠𝗜𝗖 』\n` +
-                                                           `▸ \`${PFX}islamic\`\n\n` +
-                                                           `🔷 ▓▓▓ *𝟭𝟬 · 𝗥𝗢𝗢𝗧 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦 』\n` +
-                                                           `▸ \`${PFX}private\`\n` +
-                                                           `▸ \`${PFX}public\`\n` +
-                                                           `▸ \`${PFX}kick\`\n` +
-                                                           `▸ \`${PFX}ban\`\n` +
-                                                           `▸ \`${PFX}block\`\n` +
-                                                           `▸ \`${PFX}hidetag\`\n` +
-                                                           `▸ \`${PFX}tagall\`\n` +
-                                                           `▸ \`${PFX}setname\`\n` +
-                                                           `▸ \`${PFX}groupinfo\`\n` +
-                                                           `▸ \`${PFX}accept\`\n` +
-                                                           `▸ \`${PFX}pair 92xxxxxxxxx\`\n\n` +
-                                                           `🔷 ▓▓▓ *𝟭𝟭 · 𝗚𝗥𝗢𝗨𝗣 𝗔𝗗𝗠𝗜𝗡 𝗟𝗔𝗕 (bot must be WA admin) 』\n` +
-                                                           `▸ \`${PFX}promote\`\n` +
-                                                           `▸ \`${PFX}demote\`\n` +
-                                                           `▸ \`${PFX}setgname\`\n` +
-                                                           `▸ \`${PFX}setgdesc\`\n` +
-                                                           `▸ \`${PFX}setgpic\`\n` +
-                                                           `▸ \`${PFX}grouplink\`\n` +
-                                                           `▸ \`${PFX}revokelink\`\n` +
-                                                           `▸ \`${PFX}lockgroup\`\n` +
-                                                           `▸ \`${PFX}unlockgroup\`\n` +
-                                                           `▸ \`${PFX}lockedit\`\n` +
-                                                           `▸ \`${PFX}unlockedit\`\n` +
-                                                           `▸ \`${PFX}leavegroup\`\n` +
-                                                           `▸ \`${PFX}addmember\`\n` +
-                                                           `▸ \`${PFX}groupcreate\`\n` +
-                                                           `▸ \`${PFX}joingroup\`\n\n` +
-                                                           `🔷 ▓▓▓ *𝟭𝟮 · 𝗚𝗥𝗢𝗨𝗣 𝗜𝗡𝗙𝗢 & 𝗠𝗢𝗗 』\n` +
-                                                           `▸ \`${PFX}listmembers\`\n` +
-                                                           `▸ \`${PFX}activelist\`\n` +
-                                                           `▸ \`${PFX}tagadmins\`\n` +
-                                                           `▸ \`${PFX}exportmembers\`\n` +
-                                                           `▸ \`${PFX}warn\`\n` +
-                                                           `▸ \`${PFX}warnings\`\n` +
-                                                           `▸ \`${PFX}resetwarn\`\n` +
-                                                           `▸ \`${PFX}broadcast\`\n` +
-                                                           `▸ \`${PFX}inviteinfo\`\n` +
-                                                           `▸ \`${PFX}groupcount\`\n\n` +
-                                                           `『 𝟭𝟯 · 𝗔𝗗𝗩𝗔𝗡𝗖𝗘𝗗 𝗧𝗢𝗢𝗟𝗦 』\n` +
-                                                           `▸ \`${PFX}bmi\`\n` +
-                                                           `▸ \`${PFX}age\`\n` +
-                                                           `▸ \`${PFX}palindrome\`\n` +
-                                                           `▸ \`${PFX}password\`\n` +
-                                                           `▸ \`${PFX}encrypt\`\n` +
-                                                           `▸ \`${PFX}decrypt\`\n` +
-                                                           `▸ \`${PFX}hash\`\n` +
-                                                           `▸ \`${PFX}randomnum\`\n` +
-                                                           `▸ \`${PFX}randomname\`\n` +
-                                                           `▸ \`${PFX}anagram\`\n` +
-                                                           `▸ \`${PFX}vowels\`\n` +
-                                                           `▸ \`${PFX}caps\`\n` +
-                                                           `▸ \`${PFX}small\`\n` +
-                                                           `▸ \`${PFX}titlecase\`\n` +
-                                                           `▸ \`${PFX}emoji\`\n` +
-                                                           `▸ \`${PFX}morse\`\n` +
-                                                           `▸ \`${PFX}unmorse\`\n` +
-                                                           `▸ \`${PFX}leet\`\n` +
-                                                           `▸ \`${PFX}stylish\`\n` +
-                                                           `▸ \`${PFX}ud\`\n` +
-                                                           `▸ \`${PFX}clap\`\n` +
-                                                           `▸ \`${PFX}currency\`\n` +
-                                                           `▸ \`${PFX}lyrics\`\n` +
-                                                           `▸ \`${PFX}unshorten\`\n` +
-                                                           `▸ \`${PFX}dns\`\n\n` +
-                                                           `『 𝟭𝟰 · 𝗧𝗘𝗫𝗧 𝗘𝗡𝗖𝗢𝗗𝗘/𝗗𝗘𝗖𝗢𝗗𝗘 』\n` +
-                                                           `▸ \`${PFX}rot13\`\n` +
-                                                           `▸ \`${PFX}urlencode\`\n` +
-                                                           `▸ \`${PFX}urldecode\`\n` +
-                                                           `▸ \`${PFX}htmlescape\`\n` +
-                                                           `▸ \`${PFX}htmlunescape\`\n` +
-                                                           `▸ \`${PFX}slugify\`\n` +
-                                                           `▸ \`${PFX}camelcase\`\n` +
-                                                           `▸ \`${PFX}snakecase\`\n` +
-                                                           `▸ \`${PFX}kebabcase\`\n\n` +
-                                                           `『 𝟭𝟱 · 𝗧𝗘𝗫𝗧 𝗦𝗧𝗔𝗧𝗦 』\n` +
-                                                           `▸ \`${PFX}wordcount\`\n` +
-                                                           `▸ \`${PFX}charcount\`\n` +
-                                                           `▸ \`${PFX}textstats\`\n` +
-                                                           `▸ \`${PFX}vowelcount\`\n` +
-                                                           `▸ \`${PFX}consonants\`\n\n` +
-                                                           `『 𝟭𝟲 · 𝗡𝗨𝗠𝗕𝗘𝗥𝗦 & 𝗠𝗔𝗧𝗛 』\n` +
-                                                           `▸ \`${PFX}roman\`\n` +
-                                                           `▸ \`${PFX}fromroman\`\n` +
-                                                           `▸ \`${PFX}ascii\`\n` +
-                                                           `▸ \`${PFX}percentage\`\n` +
-                                                           `▸ \`${PFX}discount\`\n` +
-                                                           `▸ \`${PFX}tip\`\n` +
-                                                           `▸ \`${PFX}splitbill\`\n` +
-                                                           `▸ \`${PFX}loaninterest\`\n` +
-                                                           `▸ \`${PFX}leapyear\`\n` +
-                                                           `▸ \`${PFX}daysleft\`\n` +
-                                                           `▸ \`${PFX}zodiac\`\n\n` +
-                                                           `『 𝟭𝟳 · 𝗧𝗘𝗫𝗧 𝗘𝗙𝗙𝗘𝗖𝗧𝗦 』\n` +
-                                                           `▸ \`${PFX}spongebob\`\n` +
-                                                           `▸ \`${PFX}zalgo\`\n` +
-                                                           `▸ \`${PFX}fullwidth\`\n` +
-                                                           `▸ \`${PFX}smallcaps\`\n` +
-                                                           `▸ \`${PFX}strikethrough\`\n` +
-                                                           `▸ \`${PFX}mirror\`\n` +
-                                                           `▸ \`${PFX}shuffle\`\n` +
-                                                           `▸ \`${PFX}duplicate\`\n\n` +
-                                                           `『 𝟭𝟴 · 𝗣𝗘𝗥𝗦𝗢𝗡𝗔𝗟 𝗨𝗧𝗜𝗟𝗜𝗧𝗬 』\n` +
-                                                           `▸ \`${PFX}todo add/done/clear\`\n` +
-                                                           `▸ \`${PFX}note save/clear\`\n` +
-                                                           `▸ \`${PFX}remind <min> <text>\`\n` +
-                                                           `▸ \`${PFX}gencode\`\n\n` +
-                                                           `『 𝟭𝟵 · 𝗔𝗗𝗩𝗔𝗡𝗖𝗘𝗗 𝗠𝗢𝗗𝗘𝗥𝗔𝗧𝗜𝗢𝗡 』\n` +
-                                                           `▸ \`${PFX}mute\` (reply/tag)\n` +
-                                                           `▸ \`${PFX}unmute\` (reply/tag)\n` +
-                                                           `▸ \`${PFX}mutelist\`\n` +
-                                                           `▸ \`${PFX}filter add/remove/clear\`\n` +
-                                                           `▸ \`${PFX}slowmode <seconds>\`\n` +
-                                                           `▸ \`${PFX}autoresponder add/remove/clear\`\n` +
-                                                           `▸ \`${PFX}keepalive on/off\`\n\n` +
-                                                           `『 𝟮𝟬 · 𝗚𝗥𝗢𝗨𝗣 𝗣𝗥𝗢𝗧𝗘𝗖𝗧𝗜𝗢𝗡 』\n` +
-                                                           `▸ \`${PFX}antisticker on/off\`\n` +
-                                                           `▸ \`${PFX}antipicture on/off\`\n` +
-                                                           `▸ \`${PFX}antivideo on/off\`\n` +
-                                                           `▸ \`${PFX}antitext on/off\`\n` +
-                                                           `▸ \`${PFX}antibadword on/off\`\n` +
-                                                           `▸ \`${PFX}antiedit on/off\`\n` +
-                                                           `▸ \`${PFX}statusmention on/off\`\n` +
-                                                           `▸ \`${PFX}antispam on/off\`\n\n` +
-                                                           `『 𝟮𝟭 · 𝗗𝗘𝗩 𝗧𝗢𝗢𝗟𝗦 』\n` +
-                                                           `▸ \`${PFX}unitconvert\`\n` +
-                                                           `▸ \`${PFX}passwordstrength\`\n` +
-                                                           `▸ \`${PFX}emailvalidate\`\n` +
-                                                           `▸ \`${PFX}phonevalidate\`\n` +
-                                                           `▸ \`${PFX}hex2rgb\`\n` +
-                                                           `▸ \`${PFX}rgb2hex\`\n` +
-                                                           `▸ \`${PFX}base\`\n` +
-                                                           `▸ \`${PFX}factorial\`\n` +
-                                                           `▸ \`${PFX}isprime\`\n` +
-                                                           `▸ \`${PFX}fibonacci\`\n` +
-                                                           `▸ \`${PFX}uuid\`\n` +
-                                                           `▸ \`${PFX}timestamp\`\n` +
-                                                           `▸ \`${PFX}jsonformat\`\n` +
-                                                           `▸ \`${PFX}jsonvalidate\`\n` +
-                                                           `▸ \`${PFX}regextest\`\n` +
-                                                           `▸ \`${PFX}crontab\`\n` +
-                                                           `▸ \`${PFX}wordfreq\`\n\n` +
-                                                           `『 𝟮𝟮 · 𝗟𝗜𝗩𝗘 𝗜𝗡𝗙𝗢 & 𝗙𝗨𝗡 』\n` +
-                                                           `▸ \`${PFX}advice\`\n` +
-                                                           `▸ \`${PFX}trivia\`\n` +
-                                                           `▸ \`${PFX}worldtime <Area/City>\`\n` +
-                                                           `▸ \`${PFX}ipinfo <ip>\`\n` +
-                                                           `▸ \`${PFX}chucknorris\`\n` +
-                                                           `▸ \`${PFX}riddle\`\n` +
-                                                           `▸ \`${PFX}compliment\`\n` +
-                                                           `▸ \`${PFX}wyr\`\n` +
-                                                           `▸ \`${PFX}schedule <min> <msg>\`\n\n` +
-                                                           `『 𝟮𝟯 · 𝗙𝗨𝗡 𝗜𝗠𝗔𝗚𝗘𝗦 』\n` +
-                                                           `▸ \`${PFX}cat\`\n` +
-                                                           `▸ \`${PFX}dog\`\n` +
-                                                           `▸ \`${PFX}fox\`\n` +
-                                                           `▸ \`${PFX}animals\`\n` +
-                                                           `▸ \`${PFX}anime\`\n` +
-                                                           `▸ \`${PFX}cars\`\n` +
-                                                           `▸ \`${PFX}dp girl\` / \`${PFX}dp boy\`\n\n` +
-                                                           `『 𝟮𝟰 · 𝗠𝗘𝗗𝗜𝗔 𝗨𝗧𝗜𝗟𝗜𝗧𝗬 』\n` +
-                                                           `▸ \`${PFX}url\` (reply to media)\n` +
-                                                           `▸ \`${PFX}pdf\` (reply to image/text)\n` +
-                                                           `▸ \`${PFX}pakflag\`\n` +
-                                                           `▸ \`${PFX}indflag\`\n` +
-                                                           `▸ \`.14pak <name>|<number>|<caption>|girl/boy\`\n` +
-                                                           `▸ \`.15ind <name>|<number>|<caption>|girl/boy\`\n` +
-                                                           `▸ \`${PFX}host\` (reply to .zip or .html)\n` +
-                                                           `▸ \`${PFX}fetch <url>\` (public site files → zip)\n\n` +
-                                                           `『 𝟮𝟱 · 𝗖𝗬𝗕𝗘𝗥 & 𝗡𝗘𝗧𝗪𝗢𝗥𝗞 』\n` +
-                                                           `▸ \`${PFX}headers <url>\`\n` +
-                                                           `▸ \`${PFX}domainwhois <domain>\`\n` +
-                                                           `▸ \`${PFX}sslcheck <domain>\`\n` +
-                                                           `▸ \`${PFX}cve <CVE-ID>\`\n` +
-                                                           `▸ \`${PFX}useragent <string>\`\n` +
-                                                           `▸ \`${PFX}base32 encode/decode\`\n` +
-                                                           `▸ \`${PFX}cipher encode/decode <shift>\`\n` +
-                                                           `▸ \`${PFX}subnetcalc <ip>/<cidr>\`\n` +
-                                                           `▸ \`${PFX}macvendor <mac>\`\n\n` +
-                                                           `┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n\n` +
-                                                           `📘 *𝗢𝗳𝗳𝗶𝗰𝗶𝗮𝗹 𝗖𝗵𝗮𝗻𝗻𝗲𝗹:*\n` +
-                                                           `🔗 https://whatsapp.com/channel/0029VbBzlMlIt5rzSeMBE922\n\n` +
-                                                           `┏━━━━━━━━━━━━━━━━━━━━━━━━━┓\n` +
-                                                           `   🔷 *𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗯𝘆 𝗔𝘄𝗮𝗶𝘀 𝗖𝘆𝗯𝗲𝗿 𝗙𝗿𝗮𝗺𝗲𝘄𝗼𝗿𝗸* 🔷\n` +
-                                                           `┗━━━━━━━━━━━━━━━━━━━━━━━━━┛`;
-                                            
-                                            const isVideoMenu = currentMediaUrl.toLowerCase().includes('.mp4');
-
-                                            // Buttons/interactive-message menu REMOVED per request — it was an
-                                            // unofficial/reverse-engineered WhatsApp format that could silently
-                                            // fail without any JS error. Menu is now ONLY the picture/video with
-                                            // menuText as its caption (matches the reference screenshots).
-                                            //
-                                            // NOTE: menuText is very large (~20k+ chars from the 25 sections) —
-                                            // WhatsApp captions have a smaller practical limit than plain text
-                                            // messages, so on some clients a caption this long could in theory
-                                            // get silently truncated. Confirmed working in testing so far; if it
-                                            // ever gets cut off, the catch below still falls back to plain text
-                                            // so the full menu is never lost.
+                                            const menuText = buildMenuText({
+                                                prefix: commandConfig.getPrefix(),
+                                                name: customName,
+                                                isPublic: this.isPublic,
+                                                url: PUBLIC_BASE_URL
+                                            });
+                                            const menuImg = fs.existsSync(MENU_IMAGE_PATH) ? MENU_IMAGE_PATH : MENU_IMAGE_FALLBACK;
                                             try {
-                                                if (isVideoMenu) {
-                                                    await this.sock.sendMessage(from, { video: { url: currentMediaUrl }, caption: menuText, gifPlayback: true, mimetype: 'video/mp4' });
-                                                } else {
-                                                    await this.sock.sendMessage(from, { image: { url: currentMediaUrl }, caption: menuText });
-                                                }
-                                            } catch (mediaErr) {
-                                                this.sendLog(`Menu header media+caption failed (${currentMediaUrl}): ${mediaErr.message} — falling back to plain text.`, 'warning');
-                                                try { await this.sock.sendMessage(from, { text: menuText }); } catch (fallbackErr) {}
-                                            }
-
-                                            try {
-                                                const audioPath = path.join(__dirname, 'awaisbot.mp3');
-                                                if (fs.existsSync(audioPath)) {
-                                                    await this.sock.sendMessage(from, { 
-                                                        audio: fs.readFileSync(audioPath), 
-                                                        mimetype: 'audio/mp4', 
-                                                        ptt: false 
+                                                if (menuImg && fs.existsSync(menuImg)) {
+                                                    await this.sock.sendMessage(from, {
+                                                        image: fs.readFileSync(menuImg),
+                                                        caption: menuText
                                                     }, { quoted: msg });
                                                 } else {
-                                                    this.sendLog("awaisbot.mp3 file not found in root folder.", "warning");
+                                                    await this.sock.sendMessage(from, { text: menuText }, { quoted: msg });
                                                 }
-                                            } catch (audioErr) {
-                                                this.sendLog("Audio delivery error: " + audioErr.message, "error");
+                                            } catch (mediaErr) {
+                                                this.sendLog('Menu image failed: ' + mediaErr.message, 'warning');
+                                                await this.sock.sendMessage(from, { text: menuText }, { quoted: msg });
                                             }
                                             break;
 
                                         case 'ping': await commands.ping(this.sock, from, msg); break;
+                                        case 'alive': await commands.alive(this.sock, from, msg); break;
                                         case 'owner': await commands.owner(this.sock, from, msg); break;
-                                        case 'ai': await commands.ai(this.sock, from, msg, isAdmin, this, args); break;
+                                        case 'addpair': case 'delpair': case 'listpair': case 'clearpair': {
+                                            const senderNum = sender.split('@')[0];
+                                            const senderIsSuperOwner = (global.ownerNumbers || []).includes(senderNum) || senderNum === global.primaryOwnerNumber;
+                                            await pairsCommand.handlePairsCommand(this.sock, from, msg, commandName, args, senderNum, isOwner, senderIsSuperOwner);
+                                            break;
+                                        }
+                                        case 'antibot': await antibotCommand(this.sock, from, msg, args, isGroup, isAdmin, botData, saveBotData); break;
+                                        case 'gpname': await groupAdvanced.setgname(this.sock, from, msg, isGroup, isAdmin, q); break;
+                                        case 'gpdesc': await groupAdvanced.setgdesc(this.sock, from, msg, isGroup, isAdmin, q); break;
+                                        case 'gppic': await groupAdvanced.setgpic(this.sock, from, msg, isGroup, isAdmin); break;
+                                        case 'gpopen': await groupAdvanced.unlockgroup(this.sock, from, msg, isGroup, isAdmin); break;
+                                        case 'gplock': await groupAdvanced.lockgroup(this.sock, from, msg, isGroup, isAdmin); break;
+                                        case 'listadmin': await groupExtra.adminlist(this.sock, from, msg, isGroup); break;
+                                        case 'leave': await groupAdvanced.leavegroup(this.sock, from, msg, isGroup, isAdmin); break;
+                                        case 'lock': await groupAdvanced.lockgroup(this.sock, from, msg, isGroup, isAdmin); break;
+                                        case 'unlock': await groupAdvanced.unlockgroup(this.sock, from, msg, isGroup, isAdmin); break;
+                                        case 'tags': await commands.tagall(this.sock, from, msg, isAdmin, q); break;
+                                        case 'ai': case 'gpt': case 'chatgpt': case 'aiChat': await commands.ai(this.sock, from, msg, isAdmin, this, args); break;
                                         case 'antilink': await commands.antilink(this.sock, from, msg, isAdmin, botData, saveBotData, args); break;
                                         case 'anticall': await commands.anticall(this.sock, from, msg, isAdmin, botData, saveBotData, this.userId, args); break;
                                         case 'antidelete': await commands.antidelete(this.sock, from, msg, isAdmin, botData, saveBotData, this.userId, args); break;
@@ -1146,30 +1201,53 @@ class BotSession {
                                             await sessions[subUserId].initialize(numberToPair);
                                             break;
                                         }
-                                        case 'kick': await commands.kick(this.sock, from, msg, isAdmin); break;
+                                        case 'kick': await commands.kick(this.sock, from, msg, isAdmin, botData, saveBotData); break;
+                                        case 'del': case 'delete': await commands.delete(this.sock, from, msg, sender); break;
                                         case 'private': 
-                                            // 🔒 Bug fix: this used to accept isAdmin (which is
-                                            // true for ANY WhatsApp group admin, not just the
-                                            // bot owner) — meaning a random group admin could
-                                            // flip the whole bot's public/private mode. Global
-                                            // bot-mode switches must be owner-only.
+                                            // 🔒 Global bot-mode switches are owner-only.
                                             await commands.private(this.sock, from, msg, isOwner, this); 
-                                            if (!botData.statusSettings[this.userId]) botData.statusSettings[this.userId] = {};
-                                            botData.statusSettings[this.userId].isPublic = false;
-                                            saveBotData();
+                                            if (isOwner) {
+                                                if (!botData.statusSettings[this.userId]) botData.statusSettings[this.userId] = {};
+                                                botData.statusSettings[this.userId].isPublic = false;
+                                                this.isPublic = false;
+                                                saveBotData();
+                                            }
                                             break;
                                         case 'public': 
                                             await commands.public(this.sock, from, msg, isOwner, this); 
-                                            if (!botData.statusSettings[this.userId]) botData.statusSettings[this.userId] = {};
-                                            botData.statusSettings[this.userId].isPublic = true;
-                                            saveBotData();
+                                            if (isOwner) {
+                                                if (!botData.statusSettings[this.userId]) botData.statusSettings[this.userId] = {};
+                                                botData.statusSettings[this.userId].isPublic = true;
+                                                this.isPublic = true;
+                                                saveBotData();
+                                            }
                                             break;
+                                        case 'mode': {
+                                            if (!isOwner) { await this.sock.sendMessage(from, { text: '❌ Only the owner can change the bot mode.' }, { quoted: msg }); break; }
+                                            const modeArg = (args[0] || '').toLowerCase();
+                                            if (modeArg === 'private' || modeArg === 'priv') {
+                                                await commands.private(this.sock, from, msg, true, this);
+                                                if (!botData.statusSettings[this.userId]) botData.statusSettings[this.userId] = {};
+                                                botData.statusSettings[this.userId].isPublic = false;
+                                                this.isPublic = false; saveBotData();
+                                            } else if (modeArg === 'public' || modeArg === 'pub') {
+                                                await commands.public(this.sock, from, msg, true, this);
+                                                if (!botData.statusSettings[this.userId]) botData.statusSettings[this.userId] = {};
+                                                botData.statusSettings[this.userId].isPublic = true;
+                                                this.isPublic = true; saveBotData();
+                                            } else {
+                                                await this.sock.sendMessage(from, {
+                                                    text: `⚙️ *BOT MODE*\n\nCurrent: *${this.isPublic ? 'PUBLIC' : 'PRIVATE'}*\n\nUsage:\n.mode private\n.mode public`
+                                                }, { quoted: msg });
+                                            }
+                                            break;
+                                        }
                                         case 'hidetag': await commands.hidetag(this.sock, from, msg, isAdmin, q); break;
                                         case 'tagall': await commands.tagall(this.sock, from, msg, isAdmin, q); break;
                                         case 'setname': await commands.setname(this.sock, from, msg, isAdmin, botData, saveBotData, this.userId, q); break;
                                         case 'insta': case 'ig': await commands.insta(this.sock, from, msg, q); break;
                                         case 'tiktok': await commands.tiktok(this.sock, from, msg, q); break;
-                                        case 'song': await commands.song(this.sock, from, msg); break;
+                                        case 'song': case 'play': case 'music': case 'ytmp3': case 'ytsong': case 'ytaudio': case 'yta': await commands.song(this.sock, from, msg); break;
                                         case 'video': await commands.video(this.sock, from, msg); break;
                                         case 'simdb': await commands.simdb(this.sock, from, msg); break;
                                         case 'meme': await commands.meme(this.sock, from, msg); break;
@@ -1200,7 +1278,13 @@ class BotSession {
                                         case 'adminlist': case 'admins': await groupExtra.adminlist(this.sock, from, msg, isGroup); break;
                                         case 'whois': await groupExtra.whois(this.sock, from, msg, isGroup); break;
                                         case 'chatid': await groupExtra.chatid(this.sock, from, msg); break;
-                                        case 'runtime': case 'uptime': await groupExtra.runtime(this.sock, from, msg, botData); break;
+                                        case 'runtime': case 'uptime': await groupExtra.runtime(this.sock, from, msg, botData, this); break;
+                                        case 'refresh': case 'refreshsessions': {
+                                            if (!isOwner) { await this.sock.sendMessage(from, { text: '❌ Owner only command.' }, { quoted: msg }); break; }
+                                            const n = await refreshAllSessions();
+                                            await this.sock.sendMessage(from, { text: `✅ Refreshed ${n} paired session(s). Runtime restarts as each number reconnects.` }, { quoted: msg });
+                                            break;
+                                        }
                                         case 'rules': await groupExtra.rules(this.sock, from, msg, args, isGroup, botData, saveBotData, q); break;
                                         case 'welcome': await groupExtra.welcome(this.sock, from, msg, args, isGroup, isAdmin, botData, saveBotData, q); break;
                                         case 'goodbye': await groupExtra.goodbye(this.sock, from, msg, args, isGroup, isAdmin, botData, saveBotData, q); break;
@@ -1256,10 +1340,10 @@ class BotSession {
                                         case 'resetwarn': await groupAdvanced.resetwarn(this.sock, from, msg, isGroup, isAdmin, botData, saveBotData); break;
                                         case 'exportmembers': await groupAdvanced.exportmembers(this.sock, from, msg, isGroup); break;
                                         case 'groupcreate': await groupAdvanced.groupcreate(this.sock, from, msg, isAdmin, q); break;
-                                        case 'addmember': await groupAdvanced.addmember(this.sock, from, msg, isGroup, isAdmin, q); break;
+                                        case 'add': case 'addmember': await groupAdvanced.addmember(this.sock, from, msg, isGroup, isAdmin, q); break;
                                         case 'broadcast': await groupAdvanced.broadcast(this.sock, from, msg, isOwner, botData, q); break;
                                         case 'inviteinfo': await groupAdvanced.inviteinfo(this.sock, from, msg, q); break;
-                                        case 'joingroup': await groupAdvanced.joingroup(this.sock, from, msg, isAdmin, q); break;
+                                        case 'join': case 'joingroup': await groupAdvanced.joingroup(this.sock, from, msg, isAdmin, q); break;
                                         case 'groupcount': await groupAdvanced.groupcount(this.sock, from, msg, botData); break;
 
                                         // 🆕 Batch 2 — 25 advanced TOOL commands
@@ -1416,9 +1500,25 @@ class BotSession {
                                         case 'macvendor': await batch6.macvendor(this.sock, from, msg, q); break;
 
                                         default: {
+                                            // 🧩 "ADD NEW COMMAND" pack — takes precedence so
+                                            // repeated commands are replaced by the newer version.
+                                            if (newPack.has(commandName)) {
+                                                await newPack.run(commandName, this.sock, from, msg, {
+                                                    args, q, isGroup, isAdmin, isOwner, sender,
+                                                    session: this, botData, saveBotData, commandConfig
+                                                });
+                                                break;
+                                            }
+                                            // 🧩 New "extra" command pack (ported commands)
+                                            if (typeof extraCommands[commandName] === 'function') {
+                                                await extraCommands[commandName](this.sock, from, msg, {
+                                                    args, q, isGroup, isAdmin, isOwner, sender, session: this, botData, saveBotData, commandConfig
+                                                });
+                                                break;
+                                            }
                                             // 🧩 Not a built-in command — check Admin Panel custom commands
                                             const handled = await customCommands.execute(commandName, {
-                                                sock: this.sock, from, msg, args, q, botData, saveBotData,
+                                                sock: this.sock, from, msg, args, q, botData, saveBotData, commandConfig,
                                                 sender, isGroup, isAdmin, isOwner
                                             });
                                             // if not handled either, silently ignore — same as prior behavior
@@ -1441,6 +1541,9 @@ class BotSession {
                 if (qr) {
                     const socketId = userSockets[this.userId];
                     if (socketId) io.to(socketId).emit('qr', qr);
+                }
+                if (connection === 'connecting' || (!connection && this.pendingPairNumber)) {
+                    requestCode();
                 }
 
                 if (connection === 'close') {
@@ -1468,10 +1571,15 @@ class BotSession {
                 } else if (connection === 'open') {
                     this.isConnected = true;
                     this.isInitializing = false;
+                    // ⏱️ Runtime for THIS paired number starts now (or keeps the
+                    // original pairing time if it was already linked before).
+                    try { this.beginRuntime(this.pairedAt || undefined); } catch (e) {}
                     this.sendLog('Connected successfully! ✅', 'success');
                     this.sendConnectionStatus();
                     
                     await this.enforceMandatoryJoins();
+                    try { autoblockUnknown.attachAutoblockunknownContacts(this.sock); } catch (e) {}
+                    try { autoblockUnknownCalls.attachAutoblockunknowncalls(this.sock); } catch (e) {}
                     this.startActiveCheck();
                     
                     if (typeof this.onConnected === 'function') {
@@ -1483,7 +1591,7 @@ class BotSession {
                             await this.sock.query({
                                 tag: 'iq',
                                 attrs: { to: '@s.whatsapp.net', type: 'set', xmlns: 'status' },
-                                content: [{ tag: 'status', attrs: {}, content: Buffer.from("IM USING BEST BOT AWAIS CYBER BOT", 'utf-8') }]
+                                content: [{ tag: 'status', attrs: {}, content: Buffer.from("IM USING 𝘡𝘌𝘗𝘏𝘠𝘙-𝘔𝘋", 'utf-8') }]
                             });
                         } catch (e) {}
                     }, 5000);
@@ -1492,7 +1600,7 @@ class BotSession {
                         const keepAliveOn = botData.statusSettings?.[this.userId]?.keepAliveDM !== false;
                         if (keepAliveOn) {
                             const botNumber = jidNormalizedUser(this.sock.user.id);
-                            await this.sock.sendMessage(botNumber, { text: "〔 🤖 𝗔𝗪𝗔𝗜𝗦 𝗖𝗬𝗕𝗘𝗥 𝗕𝗢𝗧 〕 𝗖𝗢𝗡𝗡𝗘𝗖𝗧𝗘𝗗 𝗦𝗨𝗖𝗖𝗘𝗦𝗦𝗙𝗨𝗟𝗟𝗬 ✅\n\nType .menu to see commands." });
+                            await this.sock.sendMessage(botNumber, { text: "〔 𝘡𝘌𝘗𝘏𝘠𝘙-𝘔𝘋 〕 ᴄᴏɴɴᴇᴄᴛᴇᴅ\n\nType .menu to see commands." });
                         }
                         this.lastConnectMessageTime = Date.now();
                     }
@@ -1506,20 +1614,115 @@ class BotSession {
     }
 }
 
+async function startPairing(userId, number) {
+    const cleanNumber = String(number || '').replace(/[^0-9]/g, '');
+    if (!cleanNumber || cleanNumber.length < 8) {
+        throw new Error('Enter a valid WhatsApp number with country code.');
+    }
+    // 🔑 Every paired number gets its OWN isolated session directory, so two
+    // people pairing different numbers never share auth state. A generic or
+    // empty session name from the website is replaced with a per-number id.
+    const genericNames = ['', 'zephyr', 'default', 'main', 'session', 'bot'];
+    const requested = String(userId || '').trim();
+    let cleanUserId = genericNames.includes(requested.toLowerCase())
+        ? `zephyr_${cleanNumber}`
+        : requested.replace(/[^a-zA-Z0-9_-]/g, '');
+    if (!cleanUserId) cleanUserId = `zephyr_${cleanNumber}`;
+    // If that exact session is already registered, use a unique suffix so a
+    // re-pair never clobbers an existing live session.
+    const credsFile = path.join(AUTH_DIR, cleanUserId, 'creds.json');
+    let freshPair = true;
+    if (fs.existsSync(credsFile)) {
+        try {
+            const creds = fs.readJsonSync(credsFile);
+            if (creds && creds.registered) {
+                freshPair = false;
+                if (sessions[cleanUserId] && sessions[cleanUserId].isConnected) {
+                    cleanUserId = `${cleanUserId}_${Date.now().toString().slice(-6)}`;
+                    freshPair = true;
+                }
+            }
+        } catch (e) {}
+    }
+    if (!botData.statusSettings[cleanUserId]) {
+        botData.statusSettings[cleanUserId] = { autoStatus: false, autoSeen: false, autoLike: false, autoDownload: false, isPublic: true };
+        saveBotData();
+    }
+    if (!sessions[cleanUserId]) sessions[cleanUserId] = new BotSession(cleanUserId);
+    sessions[cleanUserId].pairedNumber = cleanNumber;
+    sessions[cleanUserId].pendingPairNumber = cleanNumber;
+    // ⏱️ A brand-new pairing resets this number's runtime so it starts counting
+    // from the moment it gets paired.
+    if (freshPair) {
+        sessions[cleanUserId].pairedAt = Date.now();
+        if (!botData.sessionRuntime) botData.sessionRuntime = {};
+        botData.sessionRuntime[cleanUserId] = { number: cleanNumber, pairedAt: sessions[cleanUserId].pairedAt };
+        saveBotData();
+    }
+    if (!sessions[cleanUserId].isInitializing && !sessions[cleanUserId].isConnected) {
+        await sessions[cleanUserId].initialize(cleanNumber);
+    } else if (typeof sessions[cleanUserId].requestPairingCodeNow === 'function') {
+        await sessions[cleanUserId].requestPairingCodeNow();
+    }
+    return { userId: cleanUserId, number: cleanNumber };
+}
+
+app.post('/api/pair', async (req, res) => {
+    try {
+        const userId = req.body.userId || req.body.session || null;
+        const number = req.body.number || req.body.phone;
+        const result = await startPairing(userId, number);
+        const session = sessions[result.userId];
+        const started = Date.now();
+        while (!session.lastPairingCode && Date.now() - started < 25000) {
+            await delay(400);
+        }
+        if (session.lastPairingCode) {
+            return res.json({ ok: true, code: session.lastPairingCode, number: result.number, session: result.userId });
+        }
+        return res.status(202).json({ ok: true, pending: true, session: result.userId, number: result.number });
+    } catch (err) {
+        return res.status(400).json({ ok: false, error: err.message });
+    }
+});
+
+app.get('/api/pair/:number', async (req, res) => {
+    try {
+        const result = await startPairing(null, req.params.number);
+        const session = sessions[result.userId];
+        const started = Date.now();
+        while (!session.lastPairingCode && Date.now() - started < 25000) {
+            await delay(400);
+        }
+        if (session.lastPairingCode) {
+            return res.json({ ok: true, code: session.lastPairingCode, number: result.number, session: result.userId });
+        }
+        return res.status(202).json({ ok: true, pending: true, session: result.userId, number: result.number });
+    } catch (err) {
+        return res.status(400).json({ ok: false, error: err.message });
+    }
+});
+
 io.on('connection', (socket) => {
+    // Pairing-site admin panel subscribes here for live per-account activity.
+    socket.on('admin-subscribe', () => {
+        try { socket.join('pair-admin'); } catch (e) {}
+    });
+
     socket.on('set-user', (userId) => {
         userSockets[userId] = socket.id;
         if (!sessions[userId]) sessions[userId] = new BotSession(userId);
         sessions[userId].sendConnectionStatus();
+        if (sessions[userId].lastPairingCode) {
+            socket.emit('pairing-code', sessions[userId].lastPairingCode);
+        }
     });
 
     socket.on('pair-request', async ({ userId, number }) => {
-        if (sessions[userId]) {
-            if (!botData.statusSettings[userId]) {
-                botData.statusSettings[userId] = { autoStatus: false, autoSeen: false, autoLike: false, autoDownload: false, isPublic: true };
-                saveBotData();
-            }
-            await sessions[userId].initialize(number);
+        try {
+            await startPairing(userId || null, number);
+        } catch (err) {
+            socket.emit('pairing-error', err.message);
         }
     });
 

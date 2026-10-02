@@ -10,7 +10,7 @@ module.exports = {
             const seconds = Math.floor(uptime % 60);
             
             await sock.sendMessage(remoteJid, { 
-                text: `⏳ ZEPHYR MDʀᴜɴᴛɪᴍᴇ:\n\n` +
+                text: `⏳ 𝘡𝘌𝘗𝘏𝘠𝘙-𝘔𝘋ʀᴜɴᴛɪᴍᴇ:\n\n` +
                       `🕐 *Uptime:* ${hours}h ${minutes}m ${seconds}s` 
             });
         } catch (err) {

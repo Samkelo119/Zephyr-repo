@@ -164,7 +164,7 @@ function isBotMentionedInMessage(message, botNumber) {
         }
         
         // Check for bot name mentions (optional, can be customized)
-        const botNames = [global.botname?.toLowerCase(), 'bot', 'awais mayo ultra-bot', 'awais-cyber-tech'];
+        const botNames = [global.botname?.toLowerCase(), 'bot', 'zephyr-md', 'zephyr-md bot'];
         const words = textContent.toLowerCase().split(/\s+/);
         if (botNames.some(name => words.includes(name))) {
             return true;

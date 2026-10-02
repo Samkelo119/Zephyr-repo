@@ -1,38 +1,22 @@
-const fs = require('fs');
-const path = require('path');
-
-const modeFilePath = path.join(__dirname, '..', 'data', 'mode.json');
-
-function saveMode(isPrivate) {
-    try {
-        if (!fs.existsSync(path.dirname(modeFilePath))) {
-            fs.mkdirSync(path.dirname(modeFilePath), { recursive: true });
-        }
-        fs.writeFileSync(modeFilePath, JSON.stringify({ isPrivate }));
-    } catch (e) {
-        console.error('Error saving mode:', e);
+async function privateCommand(sock, from, msg, isOwner, session) {
+    if (!isOwner) {
+        return sock.sendMessage(from, { text: '❌ Only the owner (the paired number) can switch the bot mode.' }, { quoted: msg });
     }
+    if (session && typeof session === 'object') session.isPublic = false;
+    if (global.botMode) global.botMode.isPrivate = true;
+    return sock.sendMessage(from, {
+        text: [
+            '╔══〔 🔒 ʙᴏᴛ ᴍᴏᴅᴇ 〕══╗',
+            '',
+            '✅ Mode set to: *PRIVATE*',
+            'The bot will now only respond to the paired owner number.',
+            'All other users get no response.',
+            '',
+            'Use `.public` to allow everyone again.',
+            '╚═══════════════════════╝'
+        ].join('\n')
+    }, { quoted: msg });
 }
 
-module.exports = {
-    name: 'private',
-    aliases: ['priv'],
-    description: 'Set bot to private mode',
-    execute: async (sock, remoteJid, message, args, context) => {
-        try {
-            if (!context || !context.isOwner) {
-                await context.sendResponse(sock, remoteJid, '❌ Only the owner can use this command!', message);
-                return;
-            }
-
-            if (!global.botMode) global.botMode = {};
-            global.botMode.isPrivate = true;
-            saveMode(true);
-            
-            await context.sendResponse(sock, remoteJid, `🔒 *BOT MODE: PRIVATE*\n\n✅ Bot will now only respond to the owner.\n\nOnly ${context.ownerNumber || 'owner'} can use commands.`, message);
-        } catch (err) {
-            console.error('private command error:', err);
-            await context.sendResponse(sock, remoteJid, '❌ Error executing private command.', message);
-        }
-    }
-};
+module.exports = privateCommand;
+module.exports.execute = privateCommand;

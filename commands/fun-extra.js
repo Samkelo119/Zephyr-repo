@@ -3,6 +3,8 @@
 // external API calls) so they always work, DM or group, with or without
 // WhatsApp admin rights.
 
+const settings = require('../settings');
+
 const quotes = [
     "Success is not final, failure is not fatal: it is the courage to continue that counts.",
     "Believe you can and you're halfway there.",
@@ -17,11 +19,11 @@ const quotes = [
 ];
 
 const jokes = [
-    "Teacher: 'Beta bade ho kar kya bano ge?' Student: 'Bade!' 😂",
-    "Bank walon ne bola loan ke liye guarantor chahiye... mene apne dushman ka naam de diya. 🤣",
-    "Wife: Tum mujhe kitna pyaar karte ho? Husband: Utna jitna mera WiFi range hai. 📶😂",
-    "Doctor: Aapko sirf 2 din ki zindagi bachi hai. Patient: Phir bill kal dunga. 😅",
-    "Teacher: Newton ka teesra law bolo. Student: Sir mera bhi wahi hoga jo aapka last saal hua tha. 😂"
+    "I told my computer I needed a break, and now it won't stop sending me KitKat ads. 😂",
+    "Why don't scientists trust atoms? Because they make up everything. 🤣",
+    "I would tell you a UDP joke, but you might not get it. 📶😂",
+    "Why did the developer go broke? Because he used up all his cache. 😅",
+    "I'm reading a book about anti-gravity. It's impossible to put down. 😂"
 ];
 
 const facts = [
@@ -33,9 +35,9 @@ const facts = [
 ];
 
 const eightBallReplies = [
-    "✅ Haan bilkul.", "✅ Yes, definitely.", "🤔 Shayad.", "❌ Nahi lagta.",
-    "❌ Bilkul nahi.", "🔮 Abhi clear nahi hai, dobara pucho.", "✅ Sau percent haan.",
-    "❌ Mujhe shak hai.", "🤔 Kuch kaha nahi ja sakta.", "✅ Sab signs 'haan' bol rahe hain."
+    "✅ Yes, absolutely.", "✅ Yes, definitely.", "🤔 Maybe.", "❌ I don't think so.",
+    "❌ Not a chance.", "🔮 Not clear yet, ask again.", "✅ One hundred percent yes.",
+    "❌ I have my doubts.", "🤔 I can't say right now.", "✅ All signs point to yes."
 ];
 
 function rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
@@ -76,9 +78,9 @@ async function rps(sock, from, msg, q) {
         (userChoice === 'rock' && botChoice === 'scissors') ||
         (userChoice === 'paper' && botChoice === 'rock') ||
         (userChoice === 'scissors' && botChoice === 'paper')
-    ) result = "🎉 Tum jeet gaye!";
-    else result = "🤖 Bot jeet gaya!";
-    await sock.sendMessage(from, { text: `✊✋✌️ *RPS*\n\n👤 Tum: ${userChoice}\n🤖 Bot: ${botChoice}\n\n${result}` }, { quoted: msg });
+    ) result = "🎉 You win!";
+    else result = "🤖 Bot wins!";
+    await sock.sendMessage(from, { text: `✊✋✌️ *RPS*\n\n👤 You: ${userChoice}\n🤖 Bot: ${botChoice}\n\n${result}` }, { quoted: msg });
 }
 
 async function love(sock, from, msg, q) {
@@ -93,7 +95,7 @@ async function love(sock, from, msg, q) {
 
 async function ship(sock, from, msg) {
     const mentioned = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-    if (mentioned.length < 2) return sock.sendMessage(from, { text: '⚠️ Usage: 2 logon ko mention karo — `.ship @user1 @user2`' }, { quoted: msg });
+    if (mentioned.length < 2) return sock.sendMessage(from, { text: '⚠️ Usage: mention two people — `.ship @user1 @user2`' }, { quoted: msg });
     const [a, b] = mentioned;
     let seed = 0;
     for (const c of (a + b)) seed += c.charCodeAt(0);
@@ -145,7 +147,7 @@ async function repeat(sock, from, msg, args, q) {
 
 async function calc(sock, from, msg, q) {
     if (!q) return sock.sendMessage(from, { text: '⚠️ Usage: `.calc 12*5+3`' }, { quoted: msg });
-    if (!/^[0-9+\-*/().\s%]+$/.test(q)) return sock.sendMessage(from, { text: '❌ Sirf numbers aur + - * / ( ) % use karo.' }, { quoted: msg });
+    if (!/^[0-9+\-*/().\s%]+$/.test(q)) return sock.sendMessage(from, { text: '❌ Only numbers and + - * / ( ) % are allowed.' }, { quoted: msg });
     try {
         const result = Function(`"use strict"; return (${q})`)();
         await sock.sendMessage(from, { text: `🧮 *Calculator*\n\n${q} = *${result}*` }, { quoted: msg });
@@ -155,9 +157,19 @@ async function calc(sock, from, msg, q) {
 }
 
 async function clock(sock, from, msg) {
-    const now = new Date().toLocaleString('en-PK', { timeZone: 'Asia/Karachi', dateStyle: 'full', timeStyle: 'medium' });
-    await sock.sendMessage(from, { text: `🕐 *Pakistan Time:*\n${now}` }, { quoted: msg });
+    const now = new Date();
+    const date = now.toLocaleDateString('en-ZA', { timeZone: 'Africa/Johannesburg', dateStyle: 'full' });
+    const time = now.toLocaleTimeString('en-ZA', { timeZone: 'Africa/Johannesburg', timeStyle: 'medium' });
+    await sock.sendMessage(from, {
+        text:
+            `🕐 *South African Time*\n\n` +
+            `📅 *Date:* ${date}\n` +
+            `🕰️ *Time:* ${time}\n` +
+            `🌍 *Timezone:* Africa/Johannesburg (SAST)\n\n` +
+            `${settings.footer}`
+    }, { quoted: msg });
 }
+
 
 module.exports = {
     quote, joke, fact, eightball, flip, dice, rps, love, ship,

@@ -36,7 +36,7 @@ const CURRENT_YEAR = new Date().getFullYear();
 const THEMES = {
     pak: {
         title: 'Happy Independence Day 𝘈𝘧𝘳𝘪𝘤𝘢',
-        emoji: '🇿🇦,
+        emoji: 'ZA',
         dateLabel: '14th August · 1947',
         years: CURRENT_YEAR - 1947,
         primary: '#01411C',

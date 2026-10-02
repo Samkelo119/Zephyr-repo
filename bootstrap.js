@@ -1,5 +1,5 @@
 // bootstrap.js
-// 👑 AWAIS CYBER — Auto-installer launcher.
+// ZEPHYR-MD BOT — Auto-installer launcher.
 // Run the bot with: node bootstrap.js  (this is now the default "start" script)
 // It checks if node_modules is missing or package.json changed since the
 // last install, and runs "npm install" automatically before starting —
@@ -47,5 +47,5 @@ if (needsInstall()) {
     console.log('✅ Dependencies already up to date — skipping install.\n');
 }
 
-console.log('🚀 Starting zephyr MD Bot...\n');
+console.log('🚀 Starting 𝘡𝘌𝘗𝘏𝘠𝘙-𝘔𝘋 Bot...\n');
 require('./index.js');

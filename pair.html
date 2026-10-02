@@ -3,417 +3,484 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>⚡ ZEPHYR BOT — Ultra Pairing Console</title>
+<title>𝘡𝘌𝘗𝘏𝘠𝘙-𝘔𝘋 — Pairing</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
-  :root{
-    --bg:#040509;
-    --panel:rgba(14,18,28,0.72);
-    --panel-solid:#0c0f18;
-    --line:rgba(120,150,255,0.16);
-    --line-strong:rgba(140,170,255,0.35);
-    --neon:#00ffb3;
-    --neon-2:#7c5cff;
-    --neon-3:#00d4ff;
-    --amber:#ffc266;
-    --red:#ff4d6d;
-    --text:#eaf0ff;
-    --muted:#8b96b8;
+  :root {
+    --bg: #03050c;
+    --card: rgba(8, 14, 28, 0.78);
+    --line: rgba(0, 255, 200, 0.22);
+    --neon: #00ffc8;
+    --violet: #7c5cff;
+    --cyan: #41d7ff;
+    --wa: #25d366;
+    --gold: #ffc857;
+    --text: #eef6ff;
+    --muted: #8ea0c4;
+    --danger: #ff4d6d;
   }
-  *{box-sizing:border-box;}
-  html,body{height:100%;}
-  body{
-    margin:0; background:var(--bg); color:var(--text);
-    font-family:'Space Grotesk',sans-serif;
-    overflow-x:hidden; position:relative;
-    min-height:100vh;
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--text);
+    background: var(--bg);
+    overflow-x: hidden;
   }
-  code, .mono{font-family:'JetBrains Mono',monospace;}
-  a{color:var(--neon); text-decoration:none;}
-
-  /* ---------- animated ultra background ---------- */
-  .bg-grid{
-    position:fixed; inset:0; z-index:0; pointer-events:none;
-    background-image:
-      linear-gradient(rgba(124,92,255,0.06) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(124,92,255,0.06) 1px, transparent 1px);
-    background-size: 42px 42px;
-    mask-image: radial-gradient(ellipse 80% 60% at 50% 20%, black 40%, transparent 100%);
-  }
-  .bg-aurora{
-    position:fixed; inset:-20%; z-index:0; pointer-events:none; filter:blur(90px); opacity:0.55;
+  .aurora {
+    position: fixed; inset: -20%; z-index: 0; pointer-events: none; filter: blur(80px);
     background:
-      radial-gradient(circle at 15% 15%, var(--neon-2) 0%, transparent 32%),
-      radial-gradient(circle at 85% 25%, var(--neon-3) 0%, transparent 30%),
-      radial-gradient(circle at 50% 85%, var(--neon) 0%, transparent 30%);
-    animation: drift 16s ease-in-out infinite alternate;
+      radial-gradient(circle at 20% 20%, rgba(124,92,255,.45), transparent 32%),
+      radial-gradient(circle at 80% 10%, rgba(65,215,255,.35), transparent 30%),
+      radial-gradient(circle at 50% 90%, rgba(0,255,200,.28), transparent 32%);
+    animation: drift 14s ease-in-out infinite alternate;
   }
-  @keyframes drift{
-    0%{ transform: translate(0,0) scale(1); }
-    100%{ transform: translate(2%, -3%) scale(1.06); }
+  @keyframes drift { to { transform: translate(3%, -2%) scale(1.08); } }
+  .grid {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(0,255,200,.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124,92,255,.05) 1px, transparent 1px);
+    background-size: 44px 44px;
   }
-  .scanline{
-    position:fixed; inset:0; z-index:1; pointer-events:none; opacity:0.035;
-    background: repeating-linear-gradient(0deg, #fff 0px, transparent 1px, transparent 3px);
+  .wrap { position: relative; z-index: 2; max-width: 720px; margin: 0 auto; padding: 28px 18px 50px; }
+  header { text-align: center; margin-bottom: 24px; }
+  .logo {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 800;
+    letter-spacing: 3px;
+    font-size: clamp(22px, 5vw, 34px);
+    background: linear-gradient(90deg, var(--neon), var(--cyan), var(--violet));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
   }
+  .sub { color: var(--muted); font-size: 12px; margin-top: 8px; letter-spacing: 2px; text-transform: uppercase; }
+  .line { height: 1px; margin: 18px auto 0; width: 80%; background: linear-gradient(90deg, transparent, var(--neon), transparent); opacity: .55; }
 
-  .page{position:relative; z-index:2;}
-
-  /* ---------- topbar ---------- */
-  .topbar{
-    display:flex; align-items:center; justify-content:space-between;
-    padding:16px 28px; border-bottom:1px solid var(--line);
-    background:rgba(4,5,9,0.75); backdrop-filter:blur(14px);
-    position:sticky; top:0; z-index:20;
+  .community { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
+  .community a {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    text-decoration: none; color: var(--text); font-size: 10.5px; letter-spacing: 1px;
+    padding: 14px 8px; border-radius: 14px; border: 1px solid var(--line);
+    background: var(--card); backdrop-filter: blur(14px);
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
   }
-  .brand{display:flex; align-items:center; gap:11px; font-family:'JetBrains Mono',monospace; font-weight:800; letter-spacing:0.6px; font-size:14px;}
-  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--neon); box-shadow:0 0 12px var(--neon), 0 0 26px var(--neon); animation:pulse 1.8s infinite;}
-  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
-  .brand .grad{background:linear-gradient(90deg, var(--neon), var(--neon-3), var(--neon-2)); -webkit-background-clip:text; background-clip:text; color:transparent;}
-  .badge{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted); border:1px solid var(--line); padding:5px 12px; border-radius:20px; background:rgba(255,255,255,0.02);}
+  .community a:hover { transform: translateY(-3px); }
+  .community a svg { width: 26px; height: 26px; }
+  .btn-wa { --accent: var(--wa); }
+  .btn-gc { --accent: var(--violet); }
+  .btn-owner { --accent: var(--gold); }
+  .community a { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+  .community a:hover { box-shadow: 0 12px 30px color-mix(in srgb, var(--accent) 30%, transparent); border-color: var(--accent); }
+  .community a svg { fill: var(--accent); }
 
-  /* ---------- hero ---------- */
-  .hero{max-width:980px; margin:0 auto; padding:64px 24px 20px; text-align:center;}
-  .hero .eyebrow{
-    display:inline-flex; align-items:center; gap:8px; font-family:'JetBrains Mono',monospace; color:var(--neon);
-    font-size:11px; letter-spacing:3px; text-transform:uppercase; margin-bottom:18px;
-    border:1px solid var(--line); padding:6px 14px; border-radius:20px; background:rgba(0,255,179,0.05);
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 22px;
+    margin-bottom: 16px;
+    backdrop-filter: blur(16px);
+    box-shadow: 0 20px 50px rgba(0,0,0,.35);
   }
-  .hero h1{font-size:clamp(2.1rem,5.5vw,3.6rem); line-height:1.08; margin:0 0 16px; font-weight:700; letter-spacing:-0.5px;}
-  .hero h1 .grad{
-    background:linear-gradient(90deg, var(--neon), var(--neon-3) 45%, var(--neon-2));
-    -webkit-background-clip:text; background-clip:text; color:transparent;
-    background-size:200% auto; animation: shine 5s linear infinite;
+  h3 { margin: 0 0 14px; font-family: 'Orbitron', sans-serif; font-size: 13px; letter-spacing: 1.5px; color: var(--neon); }
+  label { display: block; color: var(--muted); font-size: 11px; margin-bottom: 8px; letter-spacing: 1px; }
+  input {
+    width: 100%;
+    background: rgba(0,0,0,.4);
+    border: 1px solid var(--line);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 14px 15px;
+    font-family: inherit;
+    font-size: 15px;
+    margin-bottom: 12px;
   }
-  @keyframes shine{ to{ background-position:200% center; } }
-  .hero p{color:var(--muted); font-size:16px; max-width:600px; margin:0 auto; line-height:1.6;}
+  input:focus { outline: none; border-color: var(--neon); box-shadow: 0 0 0 3px rgba(0,255,200,.12); }
+  button {
+    width: 100%;
+    border: 0;
+    border-radius: 10px;
+    padding: 14px;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    cursor: pointer;
+    background: linear-gradient(90deg, var(--neon), var(--cyan));
+    color: #03140f;
+  }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.ghost {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--text);
+    margin-top: 10px;
+  }
+  .code {
+    min-height: 54px;
+    text-align: center;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 30px;
+    letter-spacing: 6px;
+    color: #ffd27a;
+    text-shadow: 0 0 18px rgba(255,210,122,.35);
+    margin: 14px 0 8px;
+    word-break: break-all;
+  }
+  .status { text-align: center; color: var(--muted); font-size: 12px; min-height: 18px; }
+  .bar { height: 7px; background: rgba(255,255,255,.06); border-radius: 20px; overflow: hidden; display: none; margin-top: 12px; }
+  .fill { width: 0; height: 100%; background: linear-gradient(90deg, var(--violet), var(--neon), var(--cyan)); }
+  .console {
+    height: 170px;
+    overflow: auto;
+    background: #010308;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px;
+    font-size: 12px;
+    color: var(--neon);
+  }
+  .console div { margin-bottom: 4px; }
+  .steps { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 18px; }
+  .step { border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; color: var(--muted); font-size: 11px; }
+  .step.on { color: var(--neon); border-color: var(--neon); box-shadow: 0 0 12px rgba(0,255,200,.18); }
+  footer { text-align: center; color: var(--muted); font-size: 11px; margin-top: 18px; letter-spacing: 1.5px; }
 
-  /* ---------- stat strip ---------- */
-  .stat-strip{max-width:980px; margin:32px auto 0; padding:0 24px; display:grid; grid-template-columns:repeat(3,1fr); gap:16px;}
-  .stat{
-    position:relative; background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:20px;
-    text-align:center; backdrop-filter:blur(10px); overflow:hidden;
-  }
-  .stat::before{
-    content:''; position:absolute; inset:0; padding:1px; border-radius:16px;
-    background:linear-gradient(135deg, var(--neon-2), transparent 40%, var(--neon-3));
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor; mask-composite: exclude; opacity:0.5;
-  }
-  .stat .num{font-family:'JetBrains Mono',monospace; font-size:28px; font-weight:800; color:var(--neon); text-shadow:0 0 18px rgba(0,255,179,0.35);}
-  .stat .lbl{font-size:10.5px; color:var(--muted); letter-spacing:1.5px; text-transform:uppercase; margin-top:5px;}
-
-  /* ---------- steps ---------- */
-  .steps{max-width:980px; margin:36px auto 0; padding:0 24px; display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap;}
-  .step{display:flex; align-items:center; gap:8px; font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--muted); padding:8px 14px; border:1px solid var(--line); border-radius:20px; background:rgba(255,255,255,0.02);}
-  .step .n{width:18px; height:18px; border-radius:50%; background:var(--line); display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--muted);}
-  .step.active{color:var(--neon); border-color:var(--line-strong); box-shadow:0 0 16px rgba(0,255,179,0.12);}
-  .step.active .n{background:var(--neon); color:#001a10; box-shadow:0 0 10px var(--neon);}
-  .step-arrow{color:var(--line-strong); font-size:11px;}
-
-  /* ---------- layout ---------- */
-  .wrap{max-width:980px; margin:0 auto; padding:34px 24px 60px; display:grid; gap:22px;}
-  .card{
-    position:relative; background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:26px;
-    backdrop-filter:blur(14px); box-shadow:0 20px 60px rgba(0,0,0,0.35);
-  }
-  .card::before{
-    content:''; position:absolute; inset:0; border-radius:18px; padding:1px; pointer-events:none;
-    background:linear-gradient(140deg, rgba(0,255,179,0.35), transparent 30%, rgba(124,92,255,0.28) 70%, transparent);
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor; mask-composite: exclude; opacity:0.6;
-  }
-  .card h3{margin:0 0 18px; font-size:15.5px; display:flex; align-items:center; gap:9px; color:var(--text); font-weight:600;}
-  .card h3 i{color:var(--neon); filter:drop-shadow(0 0 6px rgba(0,255,179,0.5));}
-
-  label{display:block; font-size:11.5px; color:var(--muted); margin-bottom:7px; font-family:'JetBrains Mono',monospace; letter-spacing:0.5px;}
-  input[type=text]{
-    width:100%; background:rgba(0,0,0,0.35); border:1px solid var(--line); color:var(--text);
-    padding:14px 16px; border-radius:10px; font-family:'JetBrains Mono',monospace; font-size:14px; margin-bottom:14px;
-    transition:border-color .2s, box-shadow .2s;
-  }
-  input[type=text]:focus{outline:none; border-color:var(--neon); box-shadow:0 0 0 3px rgba(0,255,179,0.12);}
-  input[type=text]::placeholder{color:#4b5470;}
-
-  .btn{
-    display:inline-flex; align-items:center; justify-content:center; gap:9px;
-    width:100%; padding:15px; border-radius:10px; border:none; cursor:pointer;
-    font-family:'JetBrains Mono',monospace; font-weight:700; font-size:13px; letter-spacing:0.6px;
-    background:linear-gradient(90deg, var(--neon), var(--neon-3)); color:#02140d;
-    transition:transform .15s ease, box-shadow .15s ease, opacity .15s ease;
-    box-shadow:0 8px 24px rgba(0,255,179,0.18);
-  }
-  .btn:hover{transform:translateY(-2px); box-shadow:0 12px 32px rgba(0,255,179,0.28);}
-  .btn:disabled{opacity:.5; cursor:not-allowed; transform:none; box-shadow:none;}
-  .btn.secondary{background:rgba(255,255,255,0.04); border:1px solid var(--line); color:var(--text); box-shadow:none;}
-  .btn.secondary:hover{border-color:var(--line-strong); box-shadow:0 0 20px rgba(124,92,255,0.15);}
-  .btn.danger{background:linear-gradient(90deg,#ff4d6d,#ff2e55); color:#2a0007; box-shadow:0 8px 24px rgba(255,77,109,0.2);}
-  .btn.wa{background:linear-gradient(90deg,#25D366,#1fb955); color:#04220f; box-shadow:0 8px 24px rgba(37,211,102,0.2);}
-
-  .progress-container{width:100%; background:rgba(255,255,255,0.06); border-radius:10px; margin-top:16px; display:none; height:9px; overflow:hidden;}
-  .progress-bar{width:0%; height:100%; background:linear-gradient(90deg, var(--neon-2), var(--neon), var(--neon-3)); box-shadow:0 0 12px rgba(0,255,179,0.5); transition:width .1s linear;}
-  .loading-text{font-size:11.5px; color:var(--muted); margin-top:8px; text-align:center; font-family:'JetBrains Mono',monospace;}
-
-  .pairing-result{
-    margin-top:18px; text-align:center; font-family:'JetBrains Mono',monospace; font-size:26px; letter-spacing:6px; font-weight:800;
-    color:var(--amber); min-height:36px; text-shadow:0 0 22px rgba(255,194,102,0.4);
-  }
-  .copy-row{display:flex; justify-content:center; margin-top:10px;}
-  .copy-btn{
-    display:none; align-items:center; gap:6px; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted);
-    background:rgba(255,255,255,0.04); border:1px solid var(--line); padding:6px 14px; border-radius:20px; cursor:pointer;
-  }
-  .copy-btn:hover{color:var(--neon); border-color:var(--line-strong);}
-
-  .hidden{display:none !important;}
-  .status-row{display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; flex-wrap:wrap; gap:10px;}
-  .status-badge{padding:6px 16px; border-radius:20px; font-size:11px; font-family:'JetBrains Mono',monospace; font-weight:700; letter-spacing:1.2px;}
-  .status-badge.connected{background:rgba(0,255,179,0.12); color:var(--neon); border:1px solid rgba(0,255,179,0.4); box-shadow:0 0 16px rgba(0,255,179,0.2);}
-  .status-badge.disconnected{background:rgba(255,77,109,0.1); color:var(--red); border:1px solid rgba(255,77,109,0.35);}
-
-  .console-body{
-    background:#020305; border:1px solid var(--line); border-radius:12px; height:250px; overflow-y:auto; padding:16px;
-    font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--neon); box-shadow:inset 0 0 30px rgba(0,255,179,0.04);
-  }
-  .console-body div{margin-bottom:5px; opacity:.92; line-height:1.5;}
-  .console-body::-webkit-scrollbar{width:6px;}
-  .console-body::-webkit-scrollbar-thumb{background:var(--line-strong); border-radius:6px;}
-
-  .cmd-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:12px;}
-  .cmd-item{
-    background:rgba(255,255,255,0.02); border:1px solid var(--line); border-radius:10px; padding:12px 14px;
-    font-family:'JetBrains Mono',monospace; font-size:12.5px; transition:border-color .2s, transform .2s;
-  }
-  .cmd-item:hover{border-color:var(--line-strong); transform:translateY(-2px);}
-  .cmd-item b{color:var(--neon);}
-  .cmd-item span{display:block; color:var(--muted); font-size:11px; margin-top:4px; font-family:'Space Grotesk',sans-serif;}
-
-  .owner-card{display:flex; flex-wrap:wrap; gap:16px; align-items:center; justify-content:space-between;}
-  .owner-info{display:flex; align-items:center; gap:16px;}
-  .avatar{
-    width:56px; height:56px; border-radius:16px; background:linear-gradient(135deg,var(--neon-2),var(--neon-3));
-    display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; font-weight:800;
-    color:#04081a; font-size:18px; box-shadow:0 8px 24px rgba(124,92,255,0.3);
-  }
-  .owner-name{font-weight:700; font-size:16px;}
-  .owner-role{color:var(--muted); font-size:12px; font-family:'JetBrains Mono',monospace; letter-spacing:0.5px;}
-  .owner-actions{display:flex; gap:10px; flex-wrap:wrap;}
-  .owner-actions .btn{width:auto; padding:11px 18px;}
-
-  footer{text-align:center; padding:28px; color:var(--muted); font-size:12px; font-family:'JetBrains Mono',monospace; border-top:1px solid var(--line); position:relative; z-index:2;}
-  footer .grad{background:linear-gradient(90deg, var(--neon), var(--neon-2)); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700;}
-
-  @media (max-width:640px){
-    .stat-strip{grid-template-columns:1fr; }
-    .hero{padding:48px 20px 16px;}
-  }
+  /* ---- pairing-site admin panel ---- */
+  .adminbtn { margin: 0 0 16px; }
+  .overlay { position: fixed; inset: 0; z-index: 60; background: rgba(2,4,10,.95); backdrop-filter: blur(8px); display: none; overflow: auto; }
+  .overlay.open { display: block; }
+  .overlay .wrap { max-width: 1000px; }
+  .adm-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .adm-head .logo { font-size: 19px; }
+  .adm-head button { width: auto; padding: 10px 16px; }
+  .adm-grid { display: grid; grid-template-columns: 330px 1fr; gap: 16px; }
+  @media (max-width: 780px) { .adm-grid { grid-template-columns: 1fr; } }
+  .sess-list { display: flex; flex-direction: column; gap: 10px; max-height: 68vh; overflow: auto; }
+  .sess { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; cursor: pointer; background: rgba(0,0,0,.35); transition: border-color .15s, transform .15s; }
+  .sess:hover { transform: translateY(-2px); }
+  .sess.active { border-color: var(--neon); box-shadow: 0 0 0 3px rgba(0,255,200,.12); }
+  .sess .num { font-family: 'Orbitron', sans-serif; font-size: 14px; letter-spacing: 1px; }
+  .sess .meta { color: var(--muted); font-size: 11px; margin-top: 6px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .dot.on { background: var(--wa); box-shadow: 0 0 8px var(--wa); }
+  .dot.off { background: var(--danger); }
+  .kv { display: grid; grid-template-columns: 180px 1fr; gap: 6px 12px; font-size: 12px; }
+  .kv .k { color: var(--muted); }
+  .pill { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; font-size: 10.5px; margin: 2px 4px 2px 0; color: var(--muted); }
+  .pill.on { color: var(--neon); border-color: var(--neon); }
+  .logbox { height: 240px; overflow: auto; background: #010308; border: 1px solid var(--line); border-radius: 12px; padding: 10px; font-size: 11.5px; color: var(--neon); }
+  .logbox .t { color: var(--muted); }
+  .subtle { color: var(--muted); font-size: 11px; letter-spacing: 1px; margin: 14px 0 8px; }
 </style>
 </head>
 <body>
+<div class="aurora"></div>
+<div class="grid"></div>
+<div class="wrap">
+  <header>
+    <div class="logo">𝘡𝘌𝘗𝘏𝘠𝘙-𝘔𝘋</div>
+    <div class="sub">WhatsApp Pairing Console</div>
+    <div class="line"></div>
+  </header>
 
-<div class="bg-aurora"></div>
-<div class="bg-grid"></div>
-<div class="scanline"></div>
-
-<div class="page">
-
-  <div class="topbar">
-    <div class="brand"><span class="dot"></span> <span class="grad">AWAIS_CYBER_BOT</span></div>
-    <div class="badge">⚡ Ultra Multi-Device Engine</div>
-  </div>
-
-  <div class="hero">
-    <div class="eyebrow"><i class="fas fa-bolt"></i> WhatsApp Automation Console</div>
-    <h1>Pair your number.<br><span class="grad">Go live in seconds.</span></h1>
-    <p>Generate a live pairing code, watch the connection log stream in real time, and control your bot from one premium dashboard.</p>
-  </div>
-
-  <div class="stat-strip">
-    <div class="stat"><div class="num" id="totalActive">0</div><div class="lbl">Bots Active</div></div>
-    <div class="stat"><div class="num">180+</div><div class="lbl">Commands</div></div>
-    <div class="stat"><div class="num">24/7</div><div class="lbl">Uptime Target</div></div>
+  <div class="community">
+    <a class="btn-wa" href="https://whatsapp.com/channel/0029Vb8p6DV8aKvNTp6n8n45" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+      WA CHANNEL
+    </a>
+    <a class="btn-gc" href="https://chat.whatsapp.com/Bgj197mqQu96rsQiAtCJOC" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11a4 4 0 10-4-4 4 4 0 004 4zm-8 1a3 3 0 10-3-3 3 3 0 003 3zm0 2c-2.67 0-8 1.34-8 4v3h9v-2c0-1.11.53-2.16 1.42-3.02A13.4 13.4 0 008 14zm8 0c-2.67 0-8 1.34-8 4v3h16v-3c0-2.66-5.33-4-8-4z"/></svg>
+      JOIN GC
+    </a>
+    <a class="btn-owner" href="https://wa.me/27621834910" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3C6.48 3 2 6.94 2 11.8c0 2.72 1.46 5.14 3.77 6.77L5 22l3.7-1.86c1.05.29 2.16.45 3.3.45 5.52 0 10-3.94 10-8.79S17.52 3 12 3zm1 12H7v-2h6v2zm2-4H7V9h8v2z"/></svg>
+      MSG OWNER
+    </a>
   </div>
 
   <div class="steps">
-    <div class="step active" id="stepA"><span class="n">1</span> Create Session</div>
-    <span class="step-arrow"><i class="fas fa-chevron-right"></i></span>
-    <div class="step" id="stepB"><span class="n">2</span> Generate Code</div>
-    <span class="step-arrow"><i class="fas fa-chevron-right"></i></span>
-    <div class="step" id="stepC"><span class="n">3</span> Connected</div>
+    <div class="step on" id="s1">1 number</div>
+    <div class="step" id="s2">2 pair</div>
+    <div class="step" id="s3">3 connected</div>
   </div>
 
+  <button class="ghost adminbtn" id="adminOpenBtn">[ ADMIN PANEL ]</button>
+
+  <div class="card">
+    <h3>GENERATE PAIRING CODE</h3>
+    <label>WHATSAPP NUMBER WITH COUNTRY CODE</label>
+    <input id="number" type="tel" inputmode="numeric" placeholder="e.g. 27621834910">
+    <button id="pairBtn">GET PAIRING CODE</button>
+    <div class="bar" id="bar"><div class="fill" id="fill"></div></div>
+    <div class="code" id="code"></div>
+    <div class="status" id="status">Enter your number, then generate a code.</div>
+    <button class="ghost" id="copyBtn" style="display:none;">COPY CODE</button>
+  </div>
+
+  <div class="card">
+    <h3>LIVE CONSOLE</h3>
+    <div class="console" id="console"></div>
+  </div>
+
+  <footer>𝘡𝘌𝘗𝘏𝘠𝘙-𝘔𝘋 · pairing engine</footer>
+</div>
+
+<div class="overlay" id="adminOverlay">
   <div class="wrap">
-
-    <div id="setupSection" class="card">
-      <h3><i class="fas fa-plus-circle"></i>Create a bot session</h3>
-      <label>Session name (any unique name for your bot)</label>
-      <input type="text" id="userIdInput" placeholder="e.g. mybot1">
-      <button class="btn" id="createBtn"><i class="fas fa-rocket"></i> Create / Select Session</button>
+    <div class="adm-head">
+      <div class="logo">𝘡𝘌𝘗𝘏𝘠𝘙-𝘔𝘋 ADMIN</div>
+      <button class="ghost" id="adminCloseBtn">CLOSE</button>
     </div>
 
-    <div id="userDashboard" class="hidden">
-      <div id="stage1" class="card">
-        <h3><i class="fas fa-link"></i>Pairing code</h3>
-        <label>WhatsApp number, with country code, no plus sign</label>
-        <input type="text" id="pairNumber" placeholder="923001234567">
-        <button class="btn" id="pairBtn"><i class="fas fa-satellite-dish"></i> Generate Code</button>
-        <div id="progressContainer" class="progress-container"><div id="progressBar" class="progress-bar"></div></div>
-        <div class="loading-text" id="loadingText"></div>
-        <div class="pairing-result" id="pairingResult"></div>
-        <div class="copy-row"><button class="copy-btn" id="copyCodeBtn"><i class="fas fa-copy"></i> Copy Code</button></div>
+    <div id="adminLogin">
+      <div class="card">
+        <h3>ADMIN LOGIN</h3>
+        <label>USERNAME</label>
+        <input id="admUser" type="text" autocomplete="username" placeholder="username">
+        <label>PASSWORD</label>
+        <input id="admPass" type="password" autocomplete="current-password" placeholder="password">
+        <button id="admLoginBtn">LOGIN</button>
+        <div class="status" id="admLoginMsg"></div>
       </div>
+    </div>
 
-      <div id="stage2" class="card hidden">
-        <div class="status-row">
-          <div><span id="connectionStatus" class="status-badge disconnected">DISCONNECTED</span>
-          <span class="mono" id="activeBotName" style="margin-left:10px;color:var(--muted);font-size:12px;"></span></div>
-          <button class="btn danger" id="logoutBtn" style="width:auto;padding:9px 18px;"><i class="fas fa-power-off"></i> Log out</button>
+    <div id="adminDash" style="display:none;">
+      <div class="adm-grid">
+        <div class="card">
+          <h3>PAIRED NUMBERS (<span id="admCount">0</span>)</h3>
+          <div class="sess-list" id="sessList"></div>
         </div>
-        <h3 style="margin-top:6px;"><i class="fas fa-terminal"></i>Live console</h3>
-        <div class="console-body" id="console"></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3><i class="fas fa-list"></i>Command highlights</h3>
-      <div class="cmd-grid">
-        <div class="cmd-item"><b>.menu</b><span>Show full 180+ command list</span></div>
-        <div class="cmd-item"><b>.pair</b><span>Link an extra number (owner)</span></div>
-        <div class="cmd-item"><b>.filter</b><span>Auto-delete banned words</span></div>
-        <div class="cmd-item"><b>.slowmode</b><span>Rate-limit group messages</span></div>
-        <div class="cmd-item"><b>.mute / .unmute</b><span>Silence a specific member</span></div>
-        <div class="cmd-item"><b>.autoresponder</b><span>Keyword-based auto replies</span></div>
-        <div class="cmd-item"><b>.antilink</b><span>Auto-remove group links</span></div>
-        <div class="cmd-item"><b>.antidelete</b><span>Recover deleted messages</span></div>
-        <div class="cmd-item"><b>.tagall</b><span>Mention every group member</span></div>
-        <div class="cmd-item"><b>.public / .private</b><span>Switch access mode</span></div>
-      </div>
-    </div>
-
-    <div class="card owner-card">
-      <div class="owner-info">
-        <div class="avatar">AC</div>
-        <div>
-          <div class="owner-name">Awais Hacker — Owner</div>
-          <div class="owner-role">AWAIS CYBER GANG</div>
+        <div class="card">
+          <h3 id="acctTitle">SELECT A NUMBER</h3>
+          <div id="acctBody" class="subtle">Click a paired number to see everything in that account.</div>
         </div>
       </div>
-      <div class="owner-actions">
-        <a class="btn wa" href="https://wa.me/923295533214" target="_blank"><i class="fab fa-whatsapp"></i> Message Owner</a>
-        <a class="btn secondary" href="https://whatsapp.com/channel/0029VbBzlMlIt5rzSeMBE922" target="_blank"><i class="fas fa-satellite-dish"></i> Join Channel</a>
-        <a class="btn secondary" href="/admin" target="_blank"><i class="fas fa-user-shield"></i> Admin Panel</a>
-      </div>
     </div>
-
   </div>
-
-  <footer>AWAIS CYBER BOT &middot; <span class="grad">Powered By Awais MD</span></footer>
-
 </div>
 
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <script>
   const socket = io();
   let currentUserId = null;
+  let lastCode = '';
 
-  function setStep(active) {
-    ['stepA','stepB','stepC'].forEach(id => document.getElementById(id).classList.remove('active'));
-    document.getElementById(active).classList.add('active');
+  const $ = (id) => document.getElementById(id);
+  function log(msg) {
+    const row = document.createElement('div');
+    row.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+    $('console').appendChild(row);
+    $('console').scrollTop = $('console').scrollHeight;
+  }
+  function setStep(n) {
+    ['s1','s2','s3'].forEach((id, i) => $(id).classList.toggle('on', i < n));
   }
 
-  document.getElementById('createBtn').onclick = () => {
-    const userId = document.getElementById('userIdInput').value.trim();
-    if (!userId) return alert('Enter a session name');
-    currentUserId = userId;
-    socket.emit('set-user', userId);
-    document.getElementById('activeBotName').innerText = 'Session: ' + userId;
-    document.getElementById('userDashboard').classList.remove('hidden');
-    document.getElementById('stage1').classList.remove('hidden');
-    document.getElementById('stage2').classList.add('hidden');
-    setStep('stepB');
+  // Each number gets its own isolated session: zephyr_<number>
+  function sessionFor(number) {
+    return 'zephyr_' + number;
+  }
+
+  $('number').addEventListener('input', () => {
+    const n = $('number').value.replace(/[^0-9]/g, '');
+    if (n.length >= 8) setStep(2);
+    else setStep(1);
+  });
+
+  $('pairBtn').onclick = async () => {
+    const number = $('number').value.replace(/[^0-9]/g, '');
+    if (number.length < 8) {
+      $('status').textContent = 'Enter a valid number with country code.';
+      return log('Invalid number');
+    }
+    currentUserId = sessionFor(number);
+    socket.emit('set-user', currentUserId);
+    setStep(2);
+    $('pairBtn').disabled = true;
+    $('status').textContent = 'Connecting to WhatsApp...';
+    $('code').textContent = '';
+    $('copyBtn').style.display = 'none';
+    $('bar').style.display = 'block';
+    log('Creating isolated session: ' + currentUserId);
+    let w = 0;
+    const t = setInterval(() => { w = Math.min(90, w + 3); $('fill').style.width = w + '%'; }, 80);
+    try {
+      const res = await fetch('/api/pair', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUserId, number })
+      });
+      const data = await res.json();
+      if (data && data.code) showCode(data.code);
+      else if (data && data.error) $('status').textContent = data.error;
+    } catch (e) {
+      $('status').textContent = 'Waiting for live pairing code...';
+    }
+    setTimeout(() => { $('pairBtn').disabled = false; clearInterval(t); $('fill').style.width = '100%'; }, 8000);
   };
 
-  socket.on('total-active', (count) => {
-    document.getElementById('totalActive').innerText = count;
-  });
+  function showCode(code) {
+    lastCode = code;
+    $('code').textContent = code;
+    $('status').textContent = 'Enter this code in WhatsApp > Linked Devices > Link with phone number.';
+    $('copyBtn').style.display = 'block';
+    $('bar').style.display = 'none';
+    log('Pairing code: ' + code);
+  }
 
-  socket.on('pairing-code', (code) => {
-    document.getElementById('progressContainer').style.display = 'none';
-    document.getElementById('loadingText').innerText = '';
-    document.getElementById('pairingResult').innerText = code;
-    const copyBtn = document.getElementById('copyCodeBtn');
-    copyBtn.style.display = code ? 'inline-flex' : 'none';
-    copyBtn.onclick = () => {
-      navigator.clipboard?.writeText(code).then(() => {
-        copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied';
-        setTimeout(() => { copyBtn.innerHTML = '<i class="fas fa-copy"></i> Copy Code'; }, 1600);
-      });
-    };
-  });
+  $('copyBtn').onclick = () => {
+    if (!lastCode) return;
+    navigator.clipboard.writeText(lastCode).then(() => {
+      $('copyBtn').textContent = 'COPIED';
+      setTimeout(() => $('copyBtn').textContent = 'COPY CODE', 1200);
+    });
+  };
 
-  socket.on('console', (log) => {
-    const consoleDiv = document.getElementById('console');
-    const entry = document.createElement('div');
-    entry.innerHTML = `[${log.timestamp}] ${log.message}`;
-    consoleDiv.appendChild(entry);
-    consoleDiv.scrollTop = consoleDiv.scrollHeight;
+  socket.on('pairing-code', showCode);
+  socket.on('pairing-error', (err) => {
+    $('status').textContent = String(err || 'Pairing failed');
+    log('Error: ' + err);
   });
-
-  socket.on('connection-status', (status) => {
-    const badge = document.getElementById('connectionStatus');
-    if (status.connected) {
-      badge.className = 'status-badge connected';
-      badge.innerText = 'CONNECTED';
-      document.getElementById('stage1').classList.add('hidden');
-      document.getElementById('stage2').classList.remove('hidden');
-      document.getElementById('progressContainer').style.display = 'none';
-      setStep('stepC');
-    } else {
-      badge.className = 'status-badge disconnected';
-      badge.innerText = 'DISCONNECTED';
+  socket.on('console', (entry) => log(entry.message || ''));
+  socket.on('connection-status', (st) => {
+    if (st && st.connected) {
+      setStep(3);
+      $('status').textContent = 'CONNECTED';
+      log('Bot connected');
     }
   });
 
-  let isPairing = false;
-  document.getElementById('pairBtn').onclick = () => {
-    if (isPairing) return;
-    const number = document.getElementById('pairNumber').value.trim();
-    if (!number) return alert('Enter a number');
+  // ---------------- Pairing-site Admin Panel ----------------
+  const adm = { selected: null, timer: null };
 
-    isPairing = true;
-    document.getElementById('pairBtn').disabled = true;
+  function fmtMs(ms) {
+    const s = Math.floor((ms || 0) / 1000);
+    const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+    return (d ? d + 'd ' : '') + (h ? h + 'h ' : '') + (m ? m + 'm ' : '') + (s % 60) + 's';
+  }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  function cleanNum(v) { return String(v || '').split('@')[0].split(':')[0]; }
 
-    const progressContainer = document.getElementById('progressContainer');
-    const progressBar = document.getElementById('progressBar');
-    const pairingResult = document.getElementById('pairingResult');
-    const loadingText = document.getElementById('loadingText');
-
-    pairingResult.innerText = '';
-    document.getElementById('copyCodeBtn').style.display = 'none';
-    loadingText.innerText = 'Connecting to WhatsApp...';
-    progressContainer.style.display = 'block';
-    progressBar.style.width = '0%';
-
-    let width = 0;
-    const interval = setInterval(() => {
-      if (width >= 90) { clearInterval(interval); }
-      else { width += 2; progressBar.style.width = width + '%'; }
-    }, 100);
-
-    socket.emit('pair-request', { userId: currentUserId, number });
-
-    setTimeout(() => {
-      isPairing = false;
-      document.getElementById('pairBtn').disabled = false;
+  function showLogin() {
+    $('adminLogin').style.display = 'block';
+    $('adminDash').style.display = 'none';
+    clearInterval(adm.timer);
+  }
+  async function showDash() {
+    $('adminLogin').style.display = 'none';
+    $('adminDash').style.display = 'block';
+    socket.emit('admin-subscribe');
+    await loadSessions();
+    clearInterval(adm.timer);
+    adm.timer = setInterval(() => {
+      if ($('adminOverlay').classList.contains('open')) loadSessions();
     }, 10000);
-  };
+  }
 
-  document.getElementById('logoutBtn').onclick = () => {
-    socket.emit('logout', currentUserId);
-    setStep('stepA');
+  $('adminOpenBtn').onclick = async () => {
+    $('adminOverlay').classList.add('open');
+    try {
+      const r = await fetch('/api/admin/check');
+      if (r.ok) showDash(); else showLogin();
+    } catch (e) { showLogin(); }
   };
+  $('adminCloseBtn').onclick = () => {
+    $('adminOverlay').classList.remove('open');
+    clearInterval(adm.timer);
+  };
+  $('admLoginBtn').onclick = async () => {
+    const username = $('admUser').value.trim();
+    const password = $('admPass').value;
+    $('admLoginMsg').textContent = 'Signing in...';
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (data.ok) { $('admLoginMsg').textContent = ''; showDash(); }
+      else $('admLoginMsg').textContent = data.error || 'Login failed.';
+    } catch (e) { $('admLoginMsg').textContent = 'Login error.'; }
+  };
+  $('admPass').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('admLoginBtn').click(); });
+
+  let sessCache = [];
+  async function loadSessions() {
+    try {
+      const res = await fetch('/api/admin/sessions');
+      if (res.status === 401) { showLogin(); return; }
+      const data = await res.json();
+      sessCache = data.sessions || [];
+      $('admCount').textContent = data.connected + '/' + data.total + ' online';
+      renderSessions();
+    } catch (e) {}
+  }
+  function renderSessions() {
+    const el = $('sessList');
+    el.innerHTML = '';
+    if (!sessCache.length) { el.innerHTML = '<div class="subtle">No paired numbers yet.</div>'; return; }
+    for (const s of sessCache) {
+      const d = document.createElement('div');
+      d.className = 'sess' + (adm.selected === s.id ? ' active' : '');
+      d.innerHTML = '<div class="num"><span class="dot ' + (s.connected ? 'on' : 'off') + '"></span>' + esc(s.number || s.id) + '</div>' +
+        '<div class="meta">' + (s.connected ? 'ONLINE' : 'OFFLINE') + ' · ' + s.groups + ' groups · ' + s.commandsRun + ' cmds · ' + fmtMs(s.runtimeMs) + '</div>';
+      d.onclick = () => { adm.selected = s.id; renderSessions(); loadAccount(s.id); };
+      el.appendChild(d);
+    }
+  }
+  async function loadAccount(id) {
+    $('acctTitle').textContent = 'LOADING...';
+    $('acctBody').textContent = '';
+    try {
+      const res = await fetch('/api/admin/session/' + encodeURIComponent(id));
+      const data = await res.json();
+      if (!data.ok) { $('acctBody').textContent = data.error || 'Not found'; return; }
+      renderAccount(data.account);
+    } catch (e) { $('acctBody').textContent = 'Failed to load account.'; }
+  }
+  function renderAccount(a) {
+    $('acctTitle').textContent = (a.number || a.id);
+    const settings = a.settings || {};
+    const settingPills = Object.keys(settings).map(k => '<span class="pill ' + (settings[k] ? 'on' : '') + '">' + esc(k) + '</span>').join('') || '<span class="subtle">none</span>';
+    const groups = [...new Set(Object.keys(a.welcomeGroups || {}).concat(Object.keys(a.goodbyeGroups || {}), Object.keys(a.antilinkGroups || {}), Object.keys(a.groupRules || {})))];
+    const groupPills = groups.slice(0, 30).map(g => '<span class="pill">' + esc(cleanNum(g)) + '</span>').join('') || '<span class="subtle">none</span>';
+    const cmds = Object.entries(a.commandStats || {}).sort((x, y) => y[1] - x[1]).slice(0, 15).map(e => '<span class="pill">' + esc(e[0]) + ': ' + e[1] + '</span>').join('') || '<span class="subtle">none</span>';
+    const logs = (a.logs || []).slice(-300).map(l => '<div><span class="t">[' + new Date(l.timestamp).toLocaleTimeString() + ']</span> ' + esc(l.message) + '</div>').join('');
+    $('acctBody').innerHTML =
+      '<div class="kv">' +
+      '<div class="k">Status</div><div>' + (a.connected ? 'ONLINE' : 'OFFLINE') + '</div>' +
+      '<div class="k">Number</div><div>' + esc(a.number || a.id) + '</div>' +
+      '<div class="k">Session ID</div><div>' + esc(a.id) + '</div>' +
+      '<div class="k">Runtime</div><div>' + (a.runtimeMs ? fmtMs(a.runtimeMs) : '-') + '</div>' +
+      '<div class="k">Paired</div><div>' + (a.pairedAt ? new Date(a.pairedAt).toLocaleString() : '-') + '</div>' +
+      '<div class="k">Public</div><div>' + (a.isPublic ? 'YES' : 'NO') + '</div>' +
+      '<div class="k">Auto React</div><div>' + (a.autoReact ? 'ON' : 'OFF') + '</div>' +
+      '<div class="k">AI</div><div>' + (a.aiEnabled ? 'ON' : 'OFF') + '</div>' +
+      '<div class="k">Groups Tracked</div><div>' + a.groups + '</div>' +
+      '<div class="k">Warnings</div><div>' + a.warnings + '</div>' +
+      '</div>' +
+      '<div class="subtle">FEATURE TOGGLES</div><div>' + settingPills + '</div>' +
+      '<div class="subtle">GROUPS</div><div>' + groupPills + '</div>' +
+      '<div class="subtle">TOP COMMANDS</div><div>' + cmds + '</div>' +
+      '<div class="subtle">ACTIVITY LOG</div>' +
+      '<div class="logbox" id="acctLog">' + (logs || '<div class="subtle">No activity recorded yet.</div>') + '</div>';
+    const box = $('acctLog');
+    if (box) box.scrollTop = box.scrollHeight;
+  }
+
+  socket.on('admin-log', (entry) => {
+    if (!adm.selected || !entry || entry.userId !== adm.selected) return;
+    const box = $('acctLog');
+    if (!box) return;
+    const row = document.createElement('div');
+    row.innerHTML = '<span class="t">[' + new Date(entry.timestamp).toLocaleTimeString() + ']</span> ' + esc(entry.message);
+    box.appendChild(row);
+    box.scrollTop = box.scrollHeight;
+  });
 </script>
 </body>
 </html>

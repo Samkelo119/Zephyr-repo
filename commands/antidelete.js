@@ -61,7 +61,7 @@ async function handleAntideleteCommand(sock, chatId, message, isAdmin, botData, 
         await sock.sendMessage(chatId, { react: { text: '⚙️', key: message.key } });
         return sock.sendMessage(chatId, {
             text: `╭━━━〔 🛡️ *𝗔𝗡𝗧𝗜-𝗗𝗘𝗟𝗘𝗧𝗘 𝗦𝗘𝗧𝗨𝗣* 〕━━━╮\n\n` +
-                   `🤖 *𝗕𝗢𝗧:* 𝗭𝗘𝗣𝗛𝗬𝗥 𝗨𝗟𝗧𝗥𝗔-𝗕𝗢𝗧\n` +
+                   `🤖 *𝗕𝗢𝗧:* 𝘡𝘌𝘗𝘏𝘠𝘙-𝘔𝘋\n` +
                    `⚙️ *Interceptor:* Message Revocation Monitor\n` +
                    `📊 *Status:* ${isEnabled ? '✅ Enabled [100% Active]' : '❌ Disabled [Standby]'}\n\n` +
                    `🛠️ *Configuration Commands:*\n` +
@@ -77,7 +77,7 @@ async function handleAntideleteCommand(sock, chatId, message, isAdmin, botData, 
         await sock.sendMessage(chatId, { react: { text: '🛡️', key: message.key } });
         return sock.sendMessage(chatId, {
             text: `╭━━━〔 🛡️ *𝗦𝗛𝗜𝗘𝗟𝗗 𝗔𝗖𝗧𝗜𝗩𝗔𝗧𝗘𝗗* 〕━━━╮\n\n` +
-                  `🤖 *𝗕𝗢𝗧:* 𝗭𝗘𝗣𝗛𝗬𝗥 𝗨𝗟𝗧𝗥𝗔-𝗕𝗢𝗧\n` +
+                  `🤖 *𝗕𝗢𝗧:* 𝘡𝘌𝘗𝘏𝘠𝘙-𝘔𝘋\n` +
                   `⚙️ *Module:* Anti-Delete Interceptor\n` +
                   `⚡ *Status:* Monitoring Packet Logs...\n\n` +
                   `💀 _The network layers will now actively intercept and recover all deleted text/media structures._\n\n` +
@@ -90,7 +90,7 @@ async function handleAntideleteCommand(sock, chatId, message, isAdmin, botData, 
         await sock.sendMessage(chatId, { react: { text: '⚠️', key: message.key } });
         return sock.sendMessage(chatId, {
             text: `╭━━━〔 ⚠️ *𝗦𝗛𝗜𝗘𝗟𝗗 𝗗𝗘𝗔𝗖𝗧𝗜𝗩𝗔𝗧𝗘𝗗* 〕━━━╮\n\n` +
-                  `🤖 *𝗕𝗢𝗧:* 𝗭𝗘𝗣𝗛𝗬𝗥 𝗨𝗟𝗧𝗥𝗔-𝗕𝗢𝗧\n` +
+                  `🤖 *𝗕𝗢𝗧:* 𝘡𝘌𝘗𝘏𝘠𝘙-𝘔𝘋\n` +
                   `🚨 *Status:* Interceptor Firewall Stopped\n\n` +
                   `⚠️ _Warning: Revoked messages will no longer be traced or stored in the temporary buffer._\n\n` +
                   `╰━━━━━━━━━━━━━━━━━━━━━━╯`
@@ -164,6 +164,7 @@ async function storeMessage(message, botData, userId) {
             mediaType,
             mediaPath,
             sender,
+            chat: message.key.remoteJid,
             group: message.key.remoteJid.endsWith('@g.us') ? message.key.remoteJid : null,
             timestamp: new Date().toISOString()
         });
@@ -187,10 +188,20 @@ async function handleMessageRevocation(sock, revocationMessage, botData, userId)
 
         const sender = original.sender;
         const senderName = sender.split('@')[0];
-        
+
+        let sourceLabel;
+        if (original.group) {
+            let groupName = original.group;
+            try { const meta = await sock.groupMetadata(original.group); groupName = meta.subject || groupName; } catch (e) {}
+            sourceLabel = `👥 *Group:* ${groupName}\n🔗 *Chat ID:* ${original.group}`;
+        } else {
+            sourceLabel = `💬 *Chat:* Direct message (${original.chat || sender})`;
+        }
+
         let report = `╭━━━〔 📡 *𝗜𝗡𝗧𝗘𝗥𝗖𝗘𝗣𝗧 𝗥𝗘𝗣𝗢𝗥𝗧* 〕━━━╮\n\n` +
                      `👤 *Sender:* @${senderName}\n` +
                      `🗑️ *Deleted By:* @${deletedBy.split('@')[0]}\n` +
+                     `${sourceLabel}\n` +
                      `🕒 *Time Log:* ${new Date().toLocaleTimeString()}\n` +
                      `📂 *Data Type:* ${original.mediaType || 'Text'}\n` +
                      `╰━━━━━━━━━━━━━━━━━━━━━━━━╯\n\n`;

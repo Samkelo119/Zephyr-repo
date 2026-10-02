@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { reply, box, normalizeJidNumber, isGroupAdmin, getMessageText } = require('../../helper');
+const { reply, box, normalizeJidNumber, isGroupAdmin, getMessageText } = require('../lib/helper');
 
 const dataDir = path.join(__dirname, '../../data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });

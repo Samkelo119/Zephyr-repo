@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# WhatsApp session credentials (NEVER commit these)
+auth_info/
+auth_info_*/
+auth/
+session/
+sessions/
+*.session
+
+# Runtime / generated bot data
+data/
+*.log
+logs/
+
+# Environment & secrets
+.env
+.env.*
+*.env
+secrets.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Build / cache
+dist/
+build/
+.cache/
+tmp/
