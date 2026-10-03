@@ -16,13 +16,23 @@ notes for each platform you asked about:
    `ADMIN_PANEL_PASSWORD` and `OPENAI_API_KEY` are optional; leave blank for defaults.
 3. Click **Apply** — Render runs `npm install` at build time and `node bootstrap.js` at runtime,
    and the bot comes up on the public `https://<service>.onrender.com` URL. Pairing site: `/`, Admin panel: `/admin`.
-4. **Persistence:** `render.yaml` mounts a 1GB disk at `/var/data` and sets `DATA_PERSIST_DIR=/var/data`.
-   `bootstrap.js` symlinks `auth_info/` and `data/` onto that disk, so your paired sessions and bot data
-   survive redeploys and restarts — you only pair once.
-   - This requires a **paid instance** (`plan: 0.5c-512mb`, Render's smallest paid web service); Render does not offer disks on the free plan.
-   - On the free plan, set `plan: free` and delete the `disk:` block and the `DATA_PERSIST_DIR` env var. The bot still runs, but the
-     filesystem is ephemeral and the service spins down after ~15 min idle, so you must re-pair after restarts
-     and it will not stay online 24/7. For a real 24/7 bot use a paid Render instance, Railway, or a VPS.
+4. **Free tier (default in `render.yaml`):** `plan: free`, no persistent disk. The bot runs and pairs fine,
+   but the filesystem is ephemeral and a free web service **spins down after ~15 minutes without traffic**, so
+   `auth_info/` (the paired session) and `data/` are wiped on every restart and you may have to re-pair. Free
+   is great for testing, not for a 24/7 bot.
+5. **Upgrading to a stay-paired, always-on bot:** change `plan: free` to `plan: 0.5c-512mb` and re-add:
+   ```yaml
+   # in the service's envVars
+   - key: DATA_PERSIST_DIR
+     value: /var/data
+   # top level of the service
+   disk:
+     name: zephyr-data
+     mountPath: /var/data
+     sizeGB: 1
+   ```
+   `bootstrap.js` then symlinks `auth_info/` and `data/` onto the disk so you only pair once. Prefer to stay
+   free? Railway, a VPS, or Termux (your own phone) all keep a session alive without a paid Render plan.
 
 ## Replit
 1. Import the GitHub repo into Replit (or upload the zip).
