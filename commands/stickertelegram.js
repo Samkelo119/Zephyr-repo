@@ -3,21 +3,30 @@
 /**
  * Telegram sticker pack downloader — sends each sticker as a WhatsApp sticker.
  * Uses only node-fetch and node-webpmux (no sharp dependency).
+ *
+ * The Telegram bot token is REQUIRED. Provide it one of these ways (in order):
+ *   1. TELEGRAM_BOT_TOKEN environment variable
+ *   2. the Admin Panel -> API Keys tab (stored as `telegramBotToken`)
+ * Create a fresh token by messaging @BotFather on Telegram (/newbot).
  */
 
 const fetch = (...a) => import('node-fetch').then(m => m.default(...a));
 const webp  = require('node-webpmux');
 const fs    = require('fs');
 const path  = require('path');
+const apiKeys = require('../lib/apiKeys');
 
 const FOOTER   = '\n\n> ᴘᴏᴡᴇʀᴇᴅ ʙʏ ZᴇPʜʏʀ~Mᴅ';
-// Token read from env; fall back to the default value so the command still
-// works out-of-the-box.  Set TELEGRAM_BOT_TOKEN in Replit Secrets to override.
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '7801479976:AAGuPL0a7kXXBYz6XUSR_ll2SR5V_W6oHl4';
-const delay     = ms => new Promise(r => setTimeout(r, ms));
-const TMP_DIR   = path.join(__dirname, '../tmp');
+const delay    = ms => new Promise(r => setTimeout(r, ms));
+const TMP_DIR  = path.join(__dirname, '../tmp');
 
 if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
+
+function getToken() {
+    const env = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
+    if (env) return env;
+    try { return String(apiKeys.get('telegramBotToken') || '').trim(); } catch (e) { return ''; }
+}
 
 async function addStickerExif(buffer, packName = 'ZᴇPʜʏʀ~Mᴅ') {
     try {
@@ -53,25 +62,57 @@ module.exports = {
             }, { quoted: message });
         }
 
+        const BOT_TOKEN = getToken();
+        if (!BOT_TOKEN) {
+            await sock.sendMessage(remoteJid, { react: { text: '❌', key: message.key } });
+            return sock.sendMessage(remoteJid, {
+                text: [
+                    `❌ *ᴛᴇʟᴇɢʀᴀᴍ ᴛᴏᴋᴇɴ ᴍɪꜱꜱɪɴɢ*`,
+                    ``,
+                    `This command needs a Telegram bot token.`,
+                    ``,
+                    `1. Open Telegram and message *@BotFather*`,
+                    `2. Send /newbot and copy the token it gives you`,
+                    `3. Set it as the *TELEGRAM_BOT_TOKEN* environment variable,`,
+                    `   or add it in the Admin Panel → 🔑 API Keys (telegramBotToken).`,
+                ].join('\n') + FOOTER,
+            }, { quoted: message });
+        }
+
         const packName = url.replace(/.*\/addstickers\//i, '').trim();
         await sock.sendMessage(remoteJid, { react: { text: '⏳', key: message.key } });
 
         try {
             const setRes  = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getStickerSet?name=${encodeURIComponent(packName)}`);
             const setData = await setRes.json();
-            if (!setData.ok) throw new Error('Pack not found or is private');
+            if (!setData.ok) {
+                if (setData.error_code === 401) throw new Error('Telegram token is invalid or expired — set a fresh TELEGRAM_BOT_TOKEN');
+                throw new Error(setData.description || 'Pack not found or is private');
+            }
 
-            const stickers = setData.result.stickers.slice(0, 20);  // max 20
+            const all = setData.result.stickers || [];
+            // Only static .webp stickers convert cleanly without ffmpeg.
+            const staticStickers = all.filter(s => !s.is_animated && !s.is_video).slice(0, 20);
+            const skipped = Math.min(all.length, 20) - staticStickers.length;
+
+            if (staticStickers.length === 0) {
+                await sock.sendMessage(remoteJid, { react: { text: '❌', key: message.key } });
+                return sock.sendMessage(remoteJid, {
+                    text: `⚠️ *${setData.result.title}* contains only animated/video stickers, which can't be sent as WhatsApp stickers from here.` + FOOTER,
+                }, { quoted: message });
+            }
+
             await sock.sendMessage(remoteJid, {
-                text: `📦 *${setData.result.title}*\n⏳ ꜱᴇɴᴅɪɴɢ *${stickers.length}* ꜱᴛɪᴄᴋᴇʀꜱ…` + FOOTER,
+                text: `📦 *${setData.result.title}*\n⏳ ꜱᴇɴᴅɪɴɢ *${staticStickers.length}* ꜱᴛɪᴄᴋᴇʀꜱ…`
+                    + (skipped > 0 ? `\n_(${skipped} animated/video skipped)_` : '') + FOOTER,
             }, { quoted: message });
 
             let ok = 0;
-            for (const sticker of stickers) {
+            for (const sticker of staticStickers) {
                 try {
-                    const fi   = await (await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${sticker.file_id}`)).json();
+                    const fi = await (await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${sticker.file_id}`)).json();
                     if (!fi.ok) continue;
-                    const buf  = Buffer.from(await (await fetch(`https://api.telegram.org/file/bot${BOT_TOKEN}/${fi.result.file_path}`)).arrayBuffer());
+                    const buf = Buffer.from(await (await fetch(`https://api.telegram.org/file/bot${BOT_TOKEN}/${fi.result.file_path}`)).arrayBuffer());
                     const wbuf = await addStickerExif(buf, setData.result.title);
                     await sock.sendMessage(remoteJid, { sticker: wbuf });
                     ok++;
@@ -80,7 +121,7 @@ module.exports = {
             }
 
             await sock.sendMessage(remoteJid, {
-                text: `✅ ꜱᴇɴᴛ *${ok}/${stickers.length}* ꜱᴛɪᴄᴋᴇʀꜱ ꜰʀᴏᴍ *${setData.result.title}*!` + FOOTER,
+                text: `✅ ꜱᴇɴᴛ *${ok}/${staticStickers.length}* ꜱᴛɪᴄᴋᴇʀꜱ ꜰʀᴏᴍ *${setData.result.title}*!` + FOOTER,
             }, { quoted: message });
             await sock.sendMessage(remoteJid, { react: { text: '✅', key: message.key } });
 
