@@ -312,12 +312,23 @@ class BotSession {
         }
         this.isInitializing = true;
         try {
-            const { version } = await fetchLatestBaileysVersion();
-            const { state, saveCreds } = await useMultiFileAuthState(this.authPath);
+        // Do not block pairing on Baileys' version endpoint. If it is slow or
+        // unavailable, Baileys can negotiate using its built-in version.
+        let version;
+        try {
+            const latest = await Promise.race([
+                fetchLatestBaileysVersion(),
+                new Promise((resolve) => setTimeout(() => resolve(null), 8000)),
+            ]);
+            version = latest?.version;
+        } catch (error) {
+            this.sendLog(`Baileys version lookup skipped: ${error.message}`, 'info');
+        }
+        const { state, saveCreds } = await useMultiFileAuthState(this.authPath);
             
-            this.sock = makeWASocket({
-                version,
-                auth: {
+        this.sock = makeWASocket({
+            ...(version ? { version } : {}),
+            auth: {
                     creds: state.creds,
                     keys: makeCacheableSignalKeyStore(state.keys, P({ level: 'fatal' })),
                 },
@@ -404,8 +415,13 @@ class BotSession {
   if (!/^\d{8,15}$/.test(normalizedPairingNumber)) {
   throw new Error('Enter a valid WhatsApp number with country code, 8-15 digits, without +.');
   }
-  await delay(1200);
-  let code = await this.sock.requestPairingCode(normalizedPairingNumber);
+            // Give the unauthenticated WebSocket time to reach WhatsApp before
+            // asking for the registration code, but never leave the UI waiting forever.
+            await delay(3000);
+            let code = await Promise.race([
+                this.sock.requestPairingCode(normalizedPairingNumber),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('WhatsApp did not respond in time. Try Generate Code again.')), 20000)),
+            ]);
                     code = code?.match(/.{1,4}/g)?.join("-") || code;
                     this.sendLog(`🔑 Pairing Code: ${code}`, 'success');
 
@@ -881,7 +897,7 @@ class BotSession {
                                                            `『 𝟬𝟳 · 𝗦𝗧𝗜𝗖𝗞𝗘𝗥 𝗟𝗔𝗕 』\n` +
                                                            `▸ \`${PFX}sticker\`\n` +
                                                            `▸ \`${PFX}toimg\`\n\n` +
-                                                           `『 𝟬𝟴 · 𝗖𝗬𝗕𝗘𝗥 𝗟𝗔𝗕 』\n` +
+                                                           `『 𝟬𝟴 · 𝗖𝗬𝗕𝗘𝗥 𝗟𝗔𝗕 ���\n` +
                                                            `▸ \`${PFX}hack\`\n` +
                                                            `▸ \`${PFX}jid\`\n` +
                                                            `▸ \`${PFX}hotgirl\`\n\n` +
@@ -1571,7 +1587,10 @@ io.on('connection', (socket) => {
     });
 });
 
-const PORT = process.env.BOT_PORT || 3001;
+// Render and other managed hosts expose the public listener through PORT.
+// Prefer an explicit BOT_PORT for local overrides, then fall back to the
+// platform PORT so the pairing page and Socket.IO share the same server.
+const PORT = process.env.BOT_PORT || process.env.PORT || 3001;
 server.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
     loadExistingSessions();

@@ -315,7 +315,8 @@
 
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <script>
-  const socket = io();
+  const botSocketUrl = window.BOT_SOCKET_URL || (window.location.hostname === 'localhost' ? `http://${window.location.hostname}:3001` : window.location.origin);
+  const socket = io(botSocketUrl, { transports: ['websocket', 'polling'], reconnection: true, reconnectionAttempts: Infinity, timeout: 10000 });
   let currentUserId = null;
 
   function setStep(active) {
