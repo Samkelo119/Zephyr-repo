@@ -113,7 +113,13 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname)));
 
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'pair.html'));
+    const publicPairPage = path.join(__dirname, '../../public/pair.html');
+    const bundledPairPage = path.join(__dirname, 'pair.html');
+    res.sendFile(fs.existsSync(publicPairPage) ? publicPairPage : bundledPairPage);
+});
+
+app.get('/healthz', (req, res) => {
+    res.status(200).json({ ok: true, service: 'zephyr-bot', node: process.versions.node });
 });
 
 const AUTH_DIR = './auth_info';
@@ -307,7 +313,22 @@ class BotSession {
 
     async initialize(pairingNumber = null) {
         if (this.isInitializing) {
-            this.sendLog("Initialization already in progress; waiting for the pairing request...", "info");
+            if (pairingNumber && this.sock && !this.isConnected) {
+                const normalizedPairingNumber = String(pairingNumber).replace(/\D/g, '');
+                if (!/^\d{8,15}$/.test(normalizedPairingNumber)) {
+                    throw new Error('Enter a valid WhatsApp number with country code, 8-15 digits, without +.');
+                }
+                this.sendLog('Connection is already opening; requesting a fresh pairing code...', 'info');
+                const code = await Promise.race([
+                    this.sock.requestPairingCode(normalizedPairingNumber),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('WhatsApp did not respond in time. Try again.')), 20000)),
+                ]);
+                const formattedCode = code?.match(/.{1,4}/g)?.join('-') || code;
+                this.sendLog(`Pairing Code: ${formattedCode}`, 'success');
+                if (typeof this.onPairingCode === 'function') await this.onPairingCode(formattedCode);
+                return formattedCode;
+            }
+            this.sendLog('Initialization already in progress; waiting for the pairing request...', 'info');
             return;
         }
         this.isInitializing = true;
