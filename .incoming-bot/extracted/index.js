@@ -307,7 +307,7 @@ class BotSession {
 
     async initialize(pairingNumber = null) {
         if (this.isInitializing) {
-            this.sendLog("Initialization already in progress...", "info");
+            this.sendLog("Initialization already in progress; waiting for the pairing request...", "info");
             return;
         }
         this.isInitializing = true;
@@ -400,7 +400,7 @@ class BotSession {
   // Waiting for `connection === 'open'` deadlocks: WhatsApp only opens the
   // session after the user enters this code in the WhatsApp app.
   try {
-  const normalizedPairingNumber = String(pairingNumber).replace(/\\D/g, '');
+  const normalizedPairingNumber = String(pairingNumber).replace(/\D/g, '');
   if (!/^\d{8,15}$/.test(normalizedPairingNumber)) {
   throw new Error('Enter a valid WhatsApp number with country code, 8-15 digits, without +.');
   }
@@ -1522,7 +1522,7 @@ io.on('connection', (socket) => {
 
     socket.on('pair-request', async ({ userId, number }) => {
         const session = sessions[userId];
-        const normalizedNumber = String(number || '').replace(/\\D/g, '');
+        const normalizedNumber = String(number || '').replace(/\D/g, '');
         if (!session || !normalizedNumber) {
             socket.emit('pairing-error', 'Enter a valid WhatsApp number with country code.');
             return;
