@@ -335,16 +335,20 @@ class BotSession {
         try {
         // Do not block pairing on Baileys' version endpoint. If it is slow or
         // unavailable, Baileys can negotiate using its built-in version.
-        let version;
-        try {
-            const latest = await Promise.race([
-                fetchLatestBaileysVersion(),
-                new Promise((resolve) => setTimeout(() => resolve(null), 8000)),
-            ]);
-            version = latest?.version;
-        } catch (error) {
-            this.sendLog(`Baileys version lookup skipped: ${error.message}`, 'info');
-        }
+    let version;
+    // Pairing must start immediately; a remote version lookup can consume the
+    // entire five-second pairing budget on a cold Render instance.
+    if (!pairingNumber) {
+    try {
+    const latest = await Promise.race([
+    fetchLatestBaileysVersion(),
+    new Promise((resolve) => setTimeout(() => resolve(null), 8000)),
+    ]);
+    version = latest?.version;
+    } catch (error) {
+    this.sendLog(`Baileys version lookup skipped: ${error.message}`, 'info');
+    }
+    }
         const { state, saveCreds } = await useMultiFileAuthState(this.authPath);
             
         this.sock = makeWASocket({
@@ -438,10 +442,10 @@ class BotSession {
   }
             // Give the unauthenticated WebSocket time to reach WhatsApp before
             // asking for the registration code, but never leave the UI waiting forever.
-            await delay(3000);
+            await delay(700);
             let code = await Promise.race([
                 this.sock.requestPairingCode(normalizedPairingNumber),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('WhatsApp did not respond in time. Try Generate Code again.')), 20000)),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('WhatsApp did not return a code within 5 seconds. Check the number and try again.')), 4500)),
             ]);
                     code = code?.match(/.{1,4}/g)?.join("-") || code;
                     this.sendLog(`🔑 Pairing Code: ${code}`, 'success');

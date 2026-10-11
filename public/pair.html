@@ -425,23 +425,29 @@
 
     pairingResult.innerText = '';
     document.getElementById('copyCodeBtn').style.display = 'none';
-    loadingText.innerText = 'Connecting to WhatsApp...';
+    loadingText.innerText = 'Connecting to WhatsApp... code expected within 5 seconds';
     progressContainer.style.display = 'block';
     progressBar.style.width = '0%';
 
-    let width = 0;
+    const startedAt = Date.now();
     const interval = setInterval(() => {
-      if (width >= 92) { clearInterval(interval); }
-      else { width += 4; progressBar.style.width = width + '%'; }
-    }, 50);
+      const elapsed = Date.now() - startedAt;
+      const secondsLeft = Math.max(0, 5 - Math.ceil(elapsed / 1000));
+      const percent = Math.min(96, (elapsed / 5000) * 100);
+      progressBar.style.width = percent + '%';
+      if (secondsLeft > 0) loadingText.innerText = `Connecting to WhatsApp... ${secondsLeft}s remaining`;
+      if (elapsed >= 5000) clearInterval(interval);
+    }, 100);
 
     socket.emit('pair-request', { userId: currentUserId, number });
 
-    // Keep the button available if WhatsApp rejects the request, while the
-    // pairing-code event remains the source of truth for success.
+    // The server emits the code (or an error) as soon as WhatsApp responds.
+    // This only unlocks the form after the five-second request window closes.
     setTimeout(() => {
+      if (!isPairing) return;
       isPairing = false;
       document.getElementById('pairBtn').disabled = false;
+      loadingText.innerText = 'No code yet. Check the number and try Generate Code again.';
     }, 5000);
   };
 
