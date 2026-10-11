@@ -313,12 +313,21 @@ class BotSession {
 
     async initialize(pairingNumber = null) {
         if (this.isInitializing) {
-            if (pairingNumber && this.sock && !this.isConnected) {
+            if (pairingNumber) {
                 const normalizedPairingNumber = String(pairingNumber).replace(/\D/g, '');
                 if (!/^\d{8,15}$/.test(normalizedPairingNumber)) {
                     throw new Error('Enter a valid WhatsApp number with country code, 8-15 digits, without +.');
                 }
-                this.sendLog('Connection is already opening; requesting a fresh pairing code...', 'info');
+
+                this.sendLog('WhatsApp is already opening; waiting for the socket before requesting your code...', 'info');
+                const deadline = Date.now() + 20000;
+                while (!this.sock && this.isInitializing && Date.now() < deadline) {
+                    await delay(250);
+                }
+                if (!this.sock || this.isConnected) {
+                    throw new Error('WhatsApp is still starting. Please press Generate Code again.');
+                }
+
                 const code = await Promise.race([
                     this.sock.requestPairingCode(normalizedPairingNumber),
                     new Promise((_, reject) => setTimeout(() => reject(new Error('WhatsApp did not respond in time. Try again.')), 20000)),
@@ -860,7 +869,7 @@ class BotSession {
                                             // image/video rotation and audio note stays exactly the same)
                                             const PFX = commandConfig.getPrefix();
                                             const menuText = `┏━━━━━━━━━━━━━━━━━━━━━━━━━┓\n` +
-                                                           `   🔷 *𝗔𝗪𝗔𝗜𝗦 𝗠𝗔𝗬𝗢 𝗨𝗟𝗧𝗥𝗔 𝗕𝗢𝗧* 🔷\n` +
+                                                           `   🔷 *𝗔𝗪𝗔𝗜𝗦 𝗠����𝗬𝗢 𝗨𝗟𝗧𝗥𝗔 𝗕𝗢𝗧* 🔷\n` +
                                                            `┗━━━━━━━━━━━━━━━━━━━━━━━━━┛\n\n` +
                                                            `「 🔗 𝗕𝗢𝗧 𝗪𝗘𝗕𝗦𝗜𝗧𝗘 」\n` +
                                                            `${PUBLIC_BASE_URL}\n\n` +

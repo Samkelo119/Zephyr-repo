@@ -333,6 +333,7 @@
   let currentUserId = null;
 
   socket.on('connect', () => {
+    if (currentUserId) socket.emit('set-user', currentUserId);
     const loadingText = document.getElementById('loadingText');
     if (loadingText && !currentUserId) loadingText.innerText = 'Ready. Create a session to begin.';
   });
@@ -351,7 +352,7 @@
     const userId = document.getElementById('userIdInput').value.trim();
     if (!userId) return alert('Enter a session name');
     currentUserId = userId;
-    socket.emit('set-user', userId);
+    if (socket.connected) socket.emit('set-user', userId);
     document.getElementById('activeBotName').innerText = 'Session: ' + userId;
     document.getElementById('userDashboard').classList.remove('hidden');
     document.getElementById('stage1').classList.remove('hidden');
@@ -418,6 +419,12 @@
     document.getElementById('pairNumber').value = number;
     if (!/^\d{8,15}$/.test(number)) {
       return alert('Enter 8-15 digits including the country code, without + or spaces.');
+    }
+
+    if (!socket.connected) {
+      document.getElementById('loadingText').innerText = 'Connecting to the bot server. Try Generate Code again in a moment.';
+      socket.connect();
+      return;
     }
 
     isPairing = true;
