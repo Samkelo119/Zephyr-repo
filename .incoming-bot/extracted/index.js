@@ -1516,12 +1516,29 @@ io.on('connection', (socket) => {
     });
 
     socket.on('pair-request', async ({ userId, number }) => {
-        if (sessions[userId]) {
-            if (!botData.statusSettings[userId]) {
-                botData.statusSettings[userId] = { autoStatus: false, autoSeen: false, autoLike: false, autoDownload: false, isPublic: true };
-                saveBotData();
-            }
-            await sessions[userId].initialize(number);
+        const session = sessions[userId];
+        const normalizedNumber = String(number || '').replace(/\\D/g, '');
+        if (!session || !normalizedNumber) {
+            socket.emit('pairing-error', 'Enter a valid WhatsApp number with country code.');
+            return;
+        }
+
+        // Bind pairing events to the requesting browser, not only the last socket
+        // registered for this user. This keeps the code visible even if the
+        // browser reconnects while Baileys is opening its WebSocket.
+        session.onPairingCode = (code) => socket.emit('pairing-code', code);
+        session.onPairingError = (message) => socket.emit('pairing-error', message);
+        socket.emit('pairing-started');
+
+        if (!botData.statusSettings[userId]) {
+            botData.statusSettings[userId] = { autoStatus: false, autoSeen: false, autoLike: false, autoDownload: false, isPublic: true };
+            saveBotData();
+        }
+
+        try {
+            await session.initialize(normalizedNumber);
+        } catch (error) {
+            socket.emit('pairing-error', error.message || 'Unable to start the WhatsApp connection.');
         }
     });
 

@@ -339,9 +339,20 @@
     document.getElementById('totalActive').innerText = count;
   });
 
+  socket.on('pairing-started', () => {
+    document.getElementById('loadingText').innerText = 'WhatsApp connection started. Requesting code...';
+  });
+
+  socket.on('pairing-error', (message) => {
+    document.getElementById('progressContainer').style.display = 'none';
+    document.getElementById('loadingText').innerText = message || 'Pairing failed. Try again.';
+    isPairing = false;
+    document.getElementById('pairBtn').disabled = false;
+  });
+
   socket.on('pairing-code', (code) => {
     document.getElementById('progressContainer').style.display = 'none';
-    document.getElementById('loadingText').innerText = '';
+    document.getElementById('loadingText').innerText = 'Code ready. Enter it in WhatsApp now.';
     document.getElementById('pairingResult').innerText = code;
     const copyBtn = document.getElementById('copyCodeBtn');
     copyBtn.style.display = code ? 'inline-flex' : 'none';
