@@ -315,8 +315,24 @@
 
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <script>
-  const socket = io();
+  const botSocketUrl = window.BOT_SOCKET_URL || `${window.location.protocol}//${window.location.hostname}:3001`;
+  const socket = io(botSocketUrl, {
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    timeout: 10000
+  });
   let currentUserId = null;
+
+  socket.on('connect', () => {
+    const loadingText = document.getElementById('loadingText');
+    if (loadingText && !currentUserId) loadingText.innerText = 'Ready. Create a session to begin.';
+  });
+
+  socket.on('connect_error', () => {
+    const loadingText = document.getElementById('loadingText');
+    if (loadingText) loadingText.innerText = 'Bot engine is starting. Retrying connection...';
+  });
 
   function setStep(active) {
     ['stepA','stepB','stepC'].forEach(id => document.getElementById(id).classList.remove('active'));

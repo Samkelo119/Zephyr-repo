@@ -396,11 +396,24 @@ class BotSession {
             require('./lib/style').applyHeavyStyle(this.sock);
 
   if (pairingNumber) {
-  // Request the code as soon as the socket is ready; the old 3s delay made
-  // the dashboard feel stuck even when WhatsApp was already reachable.
-  await delay(250);
+  // WhatsApp rejects pairing requests until the Baileys transport is open.
+  // Wait for that lifecycle event instead of racing it with a fixed delay.
+  await new Promise((resolve, reject) => {
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (!settled) { settled = true; reject(new Error('WhatsApp connection timed out. Please retry.')); }
+    }, 60000);
+    const onUpdate = ({ connection }) => {
+      if (connection === 'open' && !settled) {
+        settled = true;
+        clearTimeout(timeout);
+        resolve();
+      }
+    };
+    this.sock.ev.on('connection.update', onUpdate);
+  });
   try {
-                    let code = await this.sock.requestPairingCode(pairingNumber);
+                    let code = await this.sock.requestPairingCode(String(pairingNumber).replace(/\\D/g, ''));
                     code = code?.match(/.{1,4}/g)?.join("-") || code;
                     this.sendLog(`🔑 Pairing Code: ${code}`, 'success');
 
@@ -997,7 +1010,7 @@ class BotSession {
                                                            `▸ \`${PFX}slowmode <seconds>\`\n` +
                                                            `▸ \`${PFX}autoresponder add/remove/clear\`\n` +
                                                            `▸ \`${PFX}keepalive on/off\`\n\n` +
-                                                           `『 𝟮𝟬 · 𝗚𝗥𝗢𝗨𝗣 𝗣𝗥𝗢𝗧𝗘𝗖𝗧𝗜𝗢𝗡 』\n` +
+                                                           `『 𝟮𝟬 · 𝗚𝗥𝗢���𝗣 𝗣𝗥𝗢𝗧𝗘𝗖𝗧𝗜𝗢𝗡 』\n` +
                                                            `▸ \`${PFX}antisticker on/off\`\n` +
                                                            `▸ \`${PFX}antipicture on/off\`\n` +
                                                            `▸ \`${PFX}antivideo on/off\`\n` +
@@ -1566,7 +1579,7 @@ io.on('connection', (socket) => {
     });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.BOT_PORT || 3001;
 server.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
     loadExistingSessions();
