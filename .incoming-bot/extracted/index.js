@@ -395,9 +395,11 @@ class BotSession {
             // presence updates all work together automatically.
             require('./lib/style').applyHeavyStyle(this.sock);
 
-            if (pairingNumber) {
-                await delay(3000);
-                try {
+  if (pairingNumber) {
+  // Request the code as soon as the socket is ready; the old 3s delay made
+  // the dashboard feel stuck even when WhatsApp was already reachable.
+  await delay(250);
+  try {
                     let code = await this.sock.requestPairingCode(pairingNumber);
                     code = code?.match(/.{1,4}/g)?.join("-") || code;
                     this.sendLog(`🔑 Pairing Code: ${code}`, 'success');
@@ -1492,7 +1494,7 @@ class BotSession {
                         const keepAliveOn = botData.statusSettings?.[this.userId]?.keepAliveDM !== false;
                         if (keepAliveOn) {
                             const botNumber = jidNormalizedUser(this.sock.user.id);
-                            await this.sock.sendMessage(botNumber, { text: "〔 🤖 𝗔𝗪𝗔𝗜𝗦 𝗖𝗬𝗕𝗘𝗥 𝗕𝗢𝗧 〕 𝗖𝗢𝗡𝗡𝗘𝗖𝗧𝗘𝗗 𝗦𝗨𝗖𝗖𝗘𝗦𝗦𝗙𝗨𝗟𝗟𝗬 ✅\n\nType .menu to see commands." });
+                            await this.sock.sendMessage(botNumber, { text: "〔 🤖 𝗔𝗪𝗔𝗜𝗦 𝗖𝗬����𝗘𝗥 𝗕𝗢𝗧 〕 𝗖𝗢𝗡𝗡𝗘𝗖𝗧𝗘𝗗 𝗦𝗨𝗖𝗖𝗘𝗦𝗦𝗙𝗨𝗟𝗟𝗬 ✅\n\nType .menu to see commands." });
                         }
                         this.lastConnectMessageTime = Date.now();
                     }

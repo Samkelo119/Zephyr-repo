@@ -398,16 +398,18 @@
 
     let width = 0;
     const interval = setInterval(() => {
-      if (width >= 90) { clearInterval(interval); }
-      else { width += 2; progressBar.style.width = width + '%'; }
-    }, 100);
+      if (width >= 92) { clearInterval(interval); }
+      else { width += 4; progressBar.style.width = width + '%'; }
+    }, 50);
 
     socket.emit('pair-request', { userId: currentUserId, number });
 
+    // Keep the button available if WhatsApp rejects the request, while the
+    // pairing-code event remains the source of truth for success.
     setTimeout(() => {
       isPairing = false;
       document.getElementById('pairBtn').disabled = false;
-    }, 10000);
+    }, 5000);
   };
 
   document.getElementById('logoutBtn').onclick = () => {
