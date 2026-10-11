@@ -45,6 +45,16 @@ For production-style startup:
 npm start
 ```
 
+## Pairing code — Server 1
+
+Use the live Server 1 pairing page to request a WhatsApp pairing code:
+
+**[Open Pairing Code Server 1](https://zephyr-pair-vool.onrender.com/)**
+
+Enter your WhatsApp number in international format without the `+`, spaces, or punctuation. Keep this page open while you enter the code in WhatsApp under **Linked devices → Link a device → Link with phone number instead**.
+
+> The pairing server must remain online while generating the code. Never share your pairing code with anyone.
+
 ## Render deployment
 
 ### 1. Create the service
