@@ -390,8 +390,10 @@
   let isPairing = false;
   document.getElementById('pairBtn').onclick = () => {
     if (isPairing) return;
-    const number = document.getElementById('pairNumber').value.trim();
-    if (!number) return alert('Enter a number');
+    const number = document.getElementById('pairNumber').value.trim().replace(/\D/g, '');
+    if (!/^\d{8,15}$/.test(number)) {
+      return alert('Enter 8-15 digits including the country code, without + or spaces.');
+    }
 
     isPairing = true;
     document.getElementById('pairBtn').disabled = true;

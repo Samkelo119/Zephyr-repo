@@ -396,24 +396,16 @@ class BotSession {
             require('./lib/style').applyHeavyStyle(this.sock);
 
   if (pairingNumber) {
-  // WhatsApp rejects pairing requests until the Baileys transport is open.
-  // Wait for that lifecycle event instead of racing it with a fixed delay.
-  await new Promise((resolve, reject) => {
-    let settled = false;
-    const timeout = setTimeout(() => {
-      if (!settled) { settled = true; reject(new Error('WhatsApp connection timed out. Please retry.')); }
-    }, 60000);
-    const onUpdate = ({ connection }) => {
-      if (connection === 'open' && !settled) {
-        settled = true;
-        clearTimeout(timeout);
-        resolve();
-      }
-    };
-    this.sock.ev.on('connection.update', onUpdate);
-  });
+  // Pairing must be requested while the unauthenticated socket is opening.
+  // Waiting for `connection === 'open'` deadlocks: WhatsApp only opens the
+  // session after the user enters this code in the WhatsApp app.
   try {
-                    let code = await this.sock.requestPairingCode(String(pairingNumber).replace(/\\D/g, ''));
+  const normalizedPairingNumber = String(pairingNumber).replace(/\\D/g, '');
+  if (!/^\d{8,15}$/.test(normalizedPairingNumber)) {
+  throw new Error('Enter a valid WhatsApp number with country code, 8-15 digits, without +.');
+  }
+  await delay(1200);
+  let code = await this.sock.requestPairingCode(normalizedPairingNumber);
                     code = code?.match(/.{1,4}/g)?.join("-") || code;
                     this.sendLog(`🔑 Pairing Code: ${code}`, 'success');
 
