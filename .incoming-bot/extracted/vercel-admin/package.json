@@ -1,0 +1,7 @@
+{
+  "name": "awais-cyber-admin-vercel",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Vercel-hosted reverse proxy so the Admin Panel opens at a Vercel URL, forwarding to your real bot backend (Railway/Replit/Heroku/Termux/etc).",
+  "engines": { "node": ">=18.0.0" }
+}
