@@ -440,14 +440,26 @@ class BotSession {
   if (!/^\d{8,15}$/.test(normalizedPairingNumber)) {
   throw new Error('Enter a valid WhatsApp number with country code, 8-15 digits, without +.');
   }
-            // Give the unauthenticated WebSocket time to reach WhatsApp before
-            // asking for the registration code, but never leave the UI waiting forever.
+            // Render cold starts can take a moment to establish the unauthenticated
+            // WebSocket. Retry briefly instead of failing the first valid request.
             await delay(700);
-            let code = await Promise.race([
-                this.sock.requestPairingCode(normalizedPairingNumber),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('WhatsApp did not return a code within 5 seconds. Check the number and try again.')), 4500)),
-            ]);
-                    code = code?.match(/.{1,4}/g)?.join("-") || code;
+            let code;
+            let lastPairingError;
+            for (let attempt = 0; attempt < 5 && !code; attempt += 1) {
+                try {
+                    code = await Promise.race([
+                        this.sock.requestPairingCode(normalizedPairingNumber),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error('WhatsApp is still opening')), 900)),
+                    ]);
+                } catch (error) {
+                    lastPairingError = error;
+                    if (attempt < 4) await delay(350);
+                }
+            }
+            if (!code) {
+                throw new Error(lastPairingError?.message || 'WhatsApp did not return a pairing code. Try again.');
+            }
+            code = code?.match(/.{1,4}/g)?.join("-") || code;
                     this.sendLog(`🔑 Pairing Code: ${code}`, 'success');
 
                     if (typeof this.onPairingCode === 'function') {

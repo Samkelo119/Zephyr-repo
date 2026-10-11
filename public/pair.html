@@ -318,7 +318,12 @@
   // Socket.IO is served by the same bot process as this page. Using the
   // current origin is required on Render and avoids connecting to a dead
   // localhost:3001 port from a phone.
-  const botSocketUrl = window.BOT_SOCKET_URL || (window.location.hostname === 'localhost' ? `http://${window.location.hostname}:3001` : window.location.origin);
+  const botSocketUrl = window.BOT_SOCKET_URL ||
+    (window.location.hostname === 'localhost'
+      ? `http://${window.location.hostname}:3001`
+      : window.location.hostname.endsWith('onrender.com')
+        ? window.location.origin
+        : 'https://zephyr-pair-vool.onrender.com');
   const socket = io(botSocketUrl, {
     transports: ['websocket', 'polling'],
     reconnection: true,
@@ -441,14 +446,15 @@
 
     socket.emit('pair-request', { userId: currentUserId, number });
 
-    // The server emits the code (or an error) as soon as WhatsApp responds.
-    // This only unlocks the form after the five-second request window closes.
+    // Keep listening beyond the five-second target. A cold Render instance can
+    // need a few extra seconds, and cancelling here used to hide valid codes.
     setTimeout(() => {
       if (!isPairing) return;
       isPairing = false;
       document.getElementById('pairBtn').disabled = false;
-      loadingText.innerText = 'No code yet. Check the number and try Generate Code again.';
-    }, 5000);
+      progressContainer.style.display = 'none';
+      loadingText.innerText = 'Still waiting for WhatsApp. Check the number and try again.';
+    }, 15000);
   };
 
   document.getElementById('logoutBtn').onclick = () => {
